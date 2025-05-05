@@ -23,6 +23,19 @@ os.makedirs(PREDICTED_DIR, exist_ok=True)
 # Download the AI model (tiny model ~6MB)
 model = YOLO("yolov8n.pt")  
 
+labels = [
+   "person", "bicycle", "car", "motorcycle", "airplane", "bus", "train", "truck", "boat", "traffic light",
+   "fire hydrant", "stop sign", "parking meter", "bench", "bird", "cat", "dog", "horse", "sheep", "cow",
+   "elephant", "bear", "zebra", "giraffe", "backpack", "umbrella", "handbag", "tie", "suitcase", "frisbee",
+   "skis", "snowboard", "sports ball", "kite", "baseball bat", "baseball glove", "skateboard", "surfboard",
+   "tennis racket", "bottle", "wine glass", "cup", "fork", "knife", "spoon", "bowl", "banana", "apple",
+   "sandwich", "orange", "broccoli", "carrot", "hot dog", "pizza", "donut", "cake", "chair", "couch",
+   "potted plant", "bed", "dining table", "toilet", "tv", "laptop", "mouse", "remote", "keyboard",
+   "cell phone", "microwave", "oven", "toaster", "sink", "refrigerator", "book", "clock", "vase",
+   "scissors", "teddy bear", "hair drier", "toothbrush"
+]
+
+
 # Initialize SQLite
 def init_db():
     with sqlite3.connect(DB_PATH) as conn:
@@ -149,6 +162,11 @@ def get_predictions_by_label(label: str):
     """
     Get prediction sessions containing objects with specified label
     """
+    #add the handle error
+    if label not in labels:
+        raise HTTPException(status_code=404, detail="Invalid label")
+    #add the handle error
+
     with sqlite3.connect(DB_PATH) as conn:
         conn.row_factory = sqlite3.Row
         rows = conn.execute("""
@@ -165,6 +183,11 @@ def get_predictions_by_score(min_score: float):
     """
     Get prediction sessions containing objects with score >= min_score
     """
+    #add the handle error
+    if not (0 <= min_score <= 1):
+        raise HTTPException(status_code=400, detail="Score must be between 0 and 1")
+    #add the handle error
+
     with sqlite3.connect(DB_PATH) as conn:
         conn.row_factory = sqlite3.Row
         rows = conn.execute("""
@@ -220,4 +243,4 @@ def health():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8080)
+    uvicorn.run(app, host="0.0.0.0", port=8081)
