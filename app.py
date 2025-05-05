@@ -163,7 +163,10 @@ def get_predictions_by_label(label: str):
     Get prediction sessions containing objects with specified label
     """
     #add the handle error
-    if label not in labels:
+    normalized_label = label.strip().lower()
+    normalized_labels = [l.lower() for l in labels]
+
+    if normalized_label not in normalized_labels:
         raise HTTPException(status_code=404, detail="Invalid label")
     #add the handle error
 
