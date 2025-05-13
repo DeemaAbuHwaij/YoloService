@@ -1,4 +1,4 @@
-name: YOLO API Tests
+name: API Tests
 
 on:
   pull_request:
@@ -6,24 +6,23 @@ on:
       - main
 
 jobs:
-  api-tests:
-    name: Run API Tests
+  test:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v3
 
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: "3.10"
+          python-version: '3.10'
 
       - name: Install dependencies
         run: |
+          pip install --upgrade pip
           pip install -r requirements.txt
-          pip install httpx pytest
+          # You can also install test-specific packages here if needed
 
-      - name: Run FastAPI tests
-        run: |
-          pytest tests/
+      - name: Run API tests
+        run: python -m pytest tests/test.api.py
