@@ -25,4 +25,5 @@ jobs:
           pip install pytest  # 👈 Make sure pytest is installed
 
       - name: Run API tests
-        run: python -m pytest tests/test.api.py
+        run: python -m pytest tests/test_api.py
+

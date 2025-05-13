@@ -37,3 +37,5 @@ else
   sudo systemctl status yolo.service --no-pager
   exit 1
 fi
+
+

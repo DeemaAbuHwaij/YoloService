@@ -13,3 +13,5 @@ def test_predict_failure():
     # Send invalid content
     response = client.post("/predict", data={"file": "not-a-file"})
     assert response.status_code in [400, 422]
+
+
