@@ -20,9 +20,12 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install --upgrade pip
+          python -m venv venv
+          source venv/bin/activate
           pip install -r requirements.txt
-          # You can also install test-specific packages here if needed
 
       - name: Run API tests
-        run: python -m pytest tests/test.api.py
+        run: |
+          source venv/bin/activate
+          pytest tests/test.api.py
+          
