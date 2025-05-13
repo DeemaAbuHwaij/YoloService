@@ -1,0 +1,27 @@
+name: Deploy YOLO Service
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up SSH and deploy to YOLO EC2
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DEEMA_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.YOLO_HOST }} >> ~/.ssh/known_hosts
+
+          ssh -o StrictHostKeyChecking=no ubuntu@${{ secrets.YOLO_HOST }} << 'EOF'
+            cd /home/ubuntu/yolo-service
+            git pull origin main
+            sudo systemctl restart yolo.service
+          EOF
