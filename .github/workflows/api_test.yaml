@@ -28,4 +28,3 @@ jobs:
         run: |
           source venv/bin/activate
           pytest tests/test.api.py
-          
