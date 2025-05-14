@@ -1,1 +1,15 @@
+[Unit]
+Description=YOLO Inference API Service
+After=network.target
+
+[Service]
+User=deema
+WorkingDirectory=/home/deema/PycharmProjects/YoloService
+ExecStart=/home/deema/PycharmProjects/YoloService/venv/bin/python3 /home/deema/PycharmProjects/YoloService/app.py
+Restart=always
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target
+
 
