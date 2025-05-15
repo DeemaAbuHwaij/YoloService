@@ -6,6 +6,11 @@ import sqlite3
 import os
 import uuid
 import shutil
+import boto3
+from botocore.exceptions import ClientError
+from fastapi import UploadFile, File, Request, HTTPException
+from typing import Optional
+
 
 # Disable GPU usage
 import torch
@@ -88,27 +93,66 @@ def save_detection_object(prediction_uid, label, score, box):
             VALUES (?, ?, ?, ?)
         """, (prediction_uid, label, score, str(box)))
 
+
+def download_from_s3(bucket_name, s3_key, local_path):
+    s3 = boto3.client('s3', region_name=os.getenv("AWS_REGION"))
+    try:
+        s3.download_file(bucket_name, s3_key, local_path)
+        return True
+    except ClientError as e:
+        print(f"❌ Failed to download from S3: {e}")
+        return False
+
+
 @app.post("/predict")
-def predict(file: UploadFile = File(...)):
-    """
-    Predict objects in an image
-    """
-    ext = os.path.splitext(file.filename)[1]
+async def predict(request: Request, file: Optional[UploadFile] = File(None)):
+    try:
+        if "application/json" in request.headers.get("content-type", ""):
+            body = await request.json()
+        else:
+            body = {}
+    except Exception:
+        body = {}
+
+    image_name = body.get("image_name")
+    chat_id = body.get("chat_id")
+
     uid = str(uuid.uuid4())
+    ext = ".jpg"
     original_path = os.path.join(UPLOAD_DIR, uid + ext)
     predicted_path = os.path.join(PREDICTED_DIR, uid + ext)
 
-    with open(original_path, "wb") as f:
-        shutil.copyfileobj(file.file, f)
+    # Case 1: Download from S3
+    if image_name and chat_id:
+        bucket = os.getenv("AWS_S3_BUCKET")
+        if not bucket:
+            raise HTTPException(status_code=500, detail="❌ AWS_S3_BUCKET env var not set.")
+        s3_key = f"{chat_id}/original/{image_name}"
+        s3 = boto3.client("s3", region_name=os.getenv("AWS_REGION"))
+        try:
+            s3.download_file(bucket, s3_key, original_path)
+        except ClientError as e:
+            raise HTTPException(status_code=400, detail=f"❌ Failed to download from S3: {e}")
 
+    # Case 2: Direct file upload
+    elif file:
+        ext = os.path.splitext(file.filename)[1]
+        original_path = os.path.join(UPLOAD_DIR, uid + ext)
+        predicted_path = os.path.join(PREDICTED_DIR, uid + ext)
+        with open(original_path, "wb") as f_out:
+            shutil.copyfileobj(file.file, f_out)
+
+    else:
+        raise HTTPException(status_code=400, detail="❌ No image file or image name provided.")
+
+    # Run detection
     results = model(original_path, device="cpu")
-
-    annotated_frame = results[0].plot()  # NumPy image with boxes
+    annotated_frame = results[0].plot()
     annotated_image = Image.fromarray(annotated_frame)
     annotated_image.save(predicted_path)
 
     save_prediction_session(uid, original_path, predicted_path)
-    
+
     detected_labels = []
     for box in results[0].boxes:
         label_idx = int(box.cls[0].item())
@@ -118,8 +162,16 @@ def predict(file: UploadFile = File(...)):
         save_detection_object(uid, label, score, bbox)
         detected_labels.append(label)
 
+    # Optional: Upload predicted image to S3
+    if image_name and chat_id:
+        try:
+            predicted_s3_key = f"{chat_id}/predicted/{image_name}"
+            s3.upload_file(predicted_path, bucket, predicted_s3_key)
+        except Exception as e:
+            print(f"❌ Failed to upload predicted image: {e}")
+
     return {
-        "prediction_uid": uid, 
+        "prediction_uid": uid,
         "detection_count": len(results[0].boxes),
         "labels": detected_labels
     }
@@ -246,5 +298,5 @@ def health():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8080)
+    uvicorn.run(app, host="0.0.0.0", port=8081)
 
