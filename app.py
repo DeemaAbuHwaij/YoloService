@@ -88,6 +88,7 @@ def save_detection_object(prediction_uid, label, score, box):
             VALUES (?, ?, ?, ?)
         """, (prediction_uid, label, score, str(box)))
 
+
 @app.post("/predict")
 def predict(file: UploadFile = File(...)):
     """
@@ -108,7 +109,7 @@ def predict(file: UploadFile = File(...)):
     annotated_image.save(predicted_path)
 
     save_prediction_session(uid, original_path, predicted_path)
-    
+
     detected_labels = []
     for box in results[0].boxes:
         label_idx = int(box.cls[0].item())
@@ -119,7 +120,7 @@ def predict(file: UploadFile = File(...)):
         detected_labels.append(label)
 
     return {
-        "prediction_uid": uid, 
+        "prediction_uid": uid,
         "detection_count": len(results[0].boxes),
         "labels": detected_labels
     }
