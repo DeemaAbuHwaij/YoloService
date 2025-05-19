@@ -1,15 +1,25 @@
+  GNU nano 7.2                                                                /etc/systemd/system/yolo.service
 [Unit]
 Description=YOLO Inference API Service
 After=network.target
 
 [Service]
-User=deema
-WorkingDirectory=/home/deema/PycharmProjects/YoloService
-ExecStart=/home/deema/PycharmProjects/YoloService/venv/bin/python3 /home/deema/PycharmProjects/YoloService/app.py
+User=ubuntu
 Restart=always
 Environment=PYTHONUNBUFFERED=1
+Environment=AWS_REGION=us-west-1
+Environment=AWS_S3_BUCKET=deema-polybot-images
+WorkingDirectory=/home/ubuntu/YoloService
+ExecStart=/home/ubuntu/YoloService/venv/bin/python /home/ubuntu/YoloService/app.py
 
 [Install]
 WantedBy=multi-user.target
+
+
+
+
+
+
+
 
 
