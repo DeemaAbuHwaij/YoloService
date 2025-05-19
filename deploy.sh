@@ -2,7 +2,7 @@
 
 set -e
 
-PROJECT_DIR="/home/deema/PycharmProjects/YoloService"
+PROJECT_DIR="$(pwd)"  # Use current working directory
 SERVICE_FILE="yolo.service"
 VENV_PATH="$PROJECT_DIR/venv"
 
