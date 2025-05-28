@@ -4,8 +4,8 @@ After=network.target
 
 [Service]
 User=ubuntu
-WorkingDirectory=/home/deema/PycharmProjects/YoloService
-ExecStart=/home/deema/PycharmProjects/YoloService/venv/bin/python3 /home/deema/PycharmProjects/YoloService/app.py
+WorkingDirectory=/home/ubuntu/PycharmProjects/YoloService
+ExecStart=/home/ubuntu/PycharmProjects/YoloService/venv/bin/python3 /home/ubuntu/PycharmProjects/YoloService/app.py
 Restart=always
 Environment=PYTHONUNBUFFERED=1
 
