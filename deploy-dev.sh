@@ -2,8 +2,7 @@
 
 set -e
 
-# Ensure venv is installed (works for Ubuntu 22/24)
-echo "📦 Installing python3-venv if missing..."
+
 sudo apt-get update
 sudo apt-get install -y python3.12-venv
 
@@ -11,10 +10,19 @@ PROJECT_DIR="$(pwd)"
 SERVICE_FILE="yolo-dev.service"
 VENV_PATH="$PROJECT_DIR/venv"
 
-# Create venv if not exists
+# Explicit venv creation with python3.12
 if [ ! -d "$VENV_PATH" ]; then
-  echo "🔧 Creating virtual environment..."
-  python3 -m venv "$VENV_PATH"
+  echo "🔧 Creating virtual environment with python3.12..."
+  /usr/bin/python3.12 -m venv "$VENV_PATH" || {
+    echo "❌ Failed to create virtual environment"
+    exit 1
+  }
+fi
+
+# Verify venv exists
+if [ ! -f "$VENV_PATH/bin/activate" ]; then
+  echo "❌ Virtualenv creation failed or is incomplete at: $VENV_PATH"
+  exit 1
 fi
 
 # Activate venv and install dependencies
@@ -25,7 +33,7 @@ pip install -r requirements.txt
 
 # Copy dev service file
 echo "🛠️ Installing $SERVICE_FILE..."
-sudo cp "$PROJECT_DIR/$SERVICE_FILE" /etc/systemd/system/
+sudo cp "$SERVICE_FILE" /etc/systemd/system/
 
 # Reload and restart systemd
 echo "🔄 Restarting YOLO dev service..."
@@ -33,11 +41,11 @@ sudo systemctl daemon-reload
 sudo systemctl restart yolo-dev.service
 sudo systemctl enable yolo-dev.service
 
-# Check service status
+# Final status check
 if systemctl is-active --quiet yolo-dev.service; then
   echo "✅ YOLO Dev service is running!"
 else
-  echo "❌ YOLO Dev service failed."
+  echo "❌ YOLO Dev service failed to start."
   sudo systemctl status yolo-dev.service --no-pager
   exit 1
 fi
