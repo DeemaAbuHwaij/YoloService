@@ -3,7 +3,7 @@
 set -e
 
 PROJECT_DIR="$(pwd)"  # Use current working directory
-SERVICE_FILE="yolo.service"
+SERVICE_FILE="yolo-prod.service"
 VENV_PATH="$PROJECT_DIR/venv"
 
 # Create venv if it doesn't exist
