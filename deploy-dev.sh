@@ -2,9 +2,7 @@
 
 set -e
 
-
-sudo apt-get update
-sudo apt-get install -y python3.12-venv
+echo "🧪 Checking Python and creating venv..."
 
 PROJECT_DIR="$(pwd)"
 SERVICE_FILE="yolo-dev.service"
@@ -12,18 +10,22 @@ VENV_PATH="$PROJECT_DIR/venv"
 
 # Create virtual environment if it doesn't exist
 if [ ! -d "$VENV_PATH" ]; then
-  echo "🔧 Creating virtual environment with python3.12..."
-  /usr/bin/python3.12 -m venv "$VENV_PATH" || {
-    echo "❌ Failed to create virtual environment"
-    exit 1
-  }
+  echo "🔧 Creating virtual environment with python3..."
+  python3 -m venv "$VENV_PATH"
+fi
+
+# Ensure venv activation script exists
+if [ ! -f "$VENV_PATH/bin/activate" ]; then
+  echo "❌ Virtualenv activation script not found!"
+  ls -l "$VENV_PATH"
+  exit 1
 fi
 
 # Activate virtual environment and install dependencies
 echo "📦 Installing requirements..."
 source "$VENV_PATH/bin/activate"
 pip install --upgrade pip
-pip install -r requirements.txt
+pip install -r "$PROJECT_DIR/requirements.txt"
 
 # Copy systemd service file
 echo "🛠️ Installing $SERVICE_FILE..."
