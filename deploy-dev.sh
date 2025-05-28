@@ -10,19 +10,19 @@ PROJECT_DIR="$(pwd)"
 SERVICE_FILE="yolo-dev.service"
 VENV_PATH="$PROJECT_DIR/venv"
 
-# Create venv if it doesn't exist
+# Create virtual environment if it doesn't exist
 if [ ! -d "$VENV_PATH" ]; then
-  echo "🔧 Creating virtual environment..."
+  echo "🔧 Creating virtual environment using system python3..."
   python3 -m venv "$VENV_PATH"
 fi
 
-# Show contents of venv/bin to verify
+# Debug: show bin contents
 echo "📁 Contents of $VENV_PATH/bin:"
 ls -la "$VENV_PATH/bin"
 
 # Check activation script
 if [ ! -f "$VENV_PATH/bin/activate" ]; then
-  echo "❌ Virtualenv activation script not found at $VENV_PATH/bin/activate"
+  echo "❌ Virtualenv activation script not found!"
   exit 1
 fi
 
@@ -32,9 +32,11 @@ source "$VENV_PATH/bin/activate"
 pip install --upgrade pip
 pip install -r "$PROJECT_DIR/requirements.txt"
 
-# Copy and reload service
-echo "🛠️ Copying $SERVICE_FILE to systemd..."
+# Install systemd service
+echo "🛠️ Installing $SERVICE_FILE..."
 sudo cp "$PROJECT_DIR/$SERVICE_FILE" /etc/systemd/system/
+
+# Restart service
 echo "🔄 Reloading and restarting service..."
 sudo systemctl daemon-reload
 sudo systemctl restart yolo-dev.service
