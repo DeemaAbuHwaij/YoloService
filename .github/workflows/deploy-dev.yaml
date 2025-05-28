@@ -1,0 +1,28 @@
+name: YOLO Dev Deploy
+
+on:
+  push:
+    branches:
+      - dev
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up SSH and deploy
+        env:
+          PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY}}
+          EC2_HOST: ${{ secrets.DEV_YOLO_HOST }}
+          EC2_USER: ${{ secrets.EC2_USERNAME }}
+        run: |
+          echo "$PRIVATE_KEY" > key.pem
+          chmod 400 key.pem
+          ssh -o StrictHostKeyChecking=no -i key.pem $EC2_USER@$EC2_HOST << 'EOF'
+            cd /home/ubuntu/yolo-dev
+            git pull origin dev
+            bash deploy-dev.sh
+          EOF
