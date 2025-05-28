@@ -30,7 +30,8 @@ jobs:
 
             cd yolo-dev
             git pull origin dev
-
+            git checkout dev
+          
             # Ensure Python and pip are installed
             sudo apt-get update
             sudo apt-get install -y python3-venv python3-pip
