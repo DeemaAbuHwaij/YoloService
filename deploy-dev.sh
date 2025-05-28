@@ -1,41 +1,43 @@
 #!/bin/bash
-
 set -e
 
-
+echo "🧪 Checking Python and creating venv..."
 sudo apt-get update
 sudo apt-get install -y python3.12-venv
 
 PROJECT_DIR="$(pwd)"
-SERVICE_FILE="yolo-dev.service"
 VENV_PATH="$PROJECT_DIR/venv"
+SERVICE_FILE="yolo-dev.service"
 
 # Create virtual environment if it doesn't exist
 if [ ! -d "$VENV_PATH" ]; then
   echo "🔧 Creating virtual environment with python3.12..."
-  /usr/bin/python3.12 -m venv "$VENV_PATH" || {
-    echo "❌ Failed to create virtual environment"
-    exit 1
-  }
+  /usr/bin/python3.12 -m venv "$VENV_PATH"
 fi
 
-# Activate virtual environment and install dependencies
+# Ensure venv activation script exists
+if [ ! -f "$VENV_PATH/bin/activate" ]; then
+  echo "❌ Virtualenv activation script not found!"
+  exit 1
+fi
+
+# Activate virtual environment and install requirements
 echo "📦 Installing requirements..."
 source "$VENV_PATH/bin/activate"
 pip install --upgrade pip
 pip install -r requirements.txt
 
-# Copy systemd service file
+# Copy systemd service
 echo "🛠️ Installing $SERVICE_FILE..."
 sudo cp "$SERVICE_FILE" /etc/systemd/system/
 
-# Reload and restart systemd service
+# Restart systemd service
 echo "🔄 Restarting YOLO dev service..."
 sudo systemctl daemon-reload
 sudo systemctl restart yolo-dev.service
 sudo systemctl enable yolo-dev.service
 
-# Check if the service is running
+# Check status
 if systemctl is-active --quiet yolo-dev.service; then
   echo "✅ YOLO Dev service is running!"
 else
