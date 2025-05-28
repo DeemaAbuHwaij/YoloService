@@ -5,7 +5,7 @@ After=network.target
 [Service]
 User=ubuntu
 WorkingDirectory=/home/ubuntu/PycharmProjects/YoloService
-ExecStart=/home/ubuntu/PycharmProjects/YoloService/venv/bin/python3 /home/deema/PycharmProjects/YoloService/app.py
+ExecStart=/home/ubuntu/PycharmProjects/YoloService/venv/bin/python3 /home/ubuntu/PycharmProjects/YoloService/app.py
 Restart=always
 
 [Install]
