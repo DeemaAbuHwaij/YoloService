@@ -1,43 +1,29 @@
-#!/bin/bash
+name: YOLO Dev Deploy
 
-set -e
+on:
+  push:
+    branches:
+      - dev
 
-# Ensure venv is installed (works for Ubuntu 22/24)
-echo "📦 Installing python3-venv if missing..."
-sudo apt-get update
-sudo apt-get install -y python3.12-venv
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
 
-PROJECT_DIR="$(pwd)"
-SERVICE_FILE="yolo-dev.service"
-VENV_PATH="$PROJECT_DIR/venv"
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-# Create venv if not exists
-if [ ! -d "$VENV_PATH" ]; then
-  echo "🔧 Creating virtual environment..."
-  python3 -m venv "$VENV_PATH"
-fi
+      - name: Set up SSH and deploy
+        env:
+          PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          EC2_HOST: ${{ secrets.DEV_YOLO_HOST }}
+          EC2_USER: ${{ secrets.EC2_USERNAME }}
+        run: |
+          echo "$PRIVATE_KEY" > key.pem
+          chmod 400 key.pem
 
-# Activate venv and install dependencies
-echo "📦 Installing requirements..."
-source "$VENV_PATH/bin/activate"
-pip install --upgrade pip
-pip install -r requirements.txt
-
-# Copy dev service file
-echo "🛠️ Installing $SERVICE_FILE..."
-sudo cp "$PROJECT_DIR/$SERVICE_FILE" /etc/systemd/system/
-
-# Reload and restart systemd
-echo "🔄 Restarting YOLO dev service..."
-sudo systemctl daemon-reload
-sudo systemctl restart yolo-dev.service
-sudo systemctl enable yolo-dev.service
-
-# Check service status
-if systemctl is-active --quiet yolo-dev.service; then
-  echo "✅ YOLO Dev service is running!"
-else
-  echo "❌ YOLO Dev service failed."
-  sudo systemctl status yolo-dev.service --no-pager
-  exit 1
-fi
+          ssh -o StrictHostKeyChecking=no -i key.pem $EC2_USER@$EC2_HOST << 'EOF'
+            cd /home/ubuntu/yolo-dev
+            git pull origin dev
+            bash deploy-dev.sh
+          EOF
