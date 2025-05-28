@@ -1,24 +1,28 @@
 #!/bin/bash
 
-set -e
+set -e  # Exit on any error
 
-PROJECT_DIR="$(pwd)"  # Use current working directory
+# Set project directory to current directory
+PROJECT_DIR="$(pwd)"
 SERVICE_FILE="yolo-dev.service"
 VENV_PATH="$PROJECT_DIR/venv"
 
-# Create venv if it doesn't exist
+echo "📂 Current directory: $PROJECT_DIR"
+echo "📁 Virtual environment path: $VENV_PATH"
+
+# Create virtual environment if it doesn't exist
 if [ ! -d "$VENV_PATH" ]; then
   echo "🔧 Creating virtual environment..."
   python3 -m venv "$VENV_PATH"
 fi
 
-# Activate venv and install dependencies
+# Activate virtual environment and install requirements
 echo "📦 Installing requirements..."
 source "$VENV_PATH/bin/activate"
 pip install --upgrade pip
 pip install -r "$PROJECT_DIR/requirements.txt"
 
-# Copy systemd service file
+# Copy the systemd service file
 echo "🛠️ Copying $SERVICE_FILE to systemd..."
 sudo cp "$PROJECT_DIR/$SERVICE_FILE" /etc/systemd/system/
 
@@ -31,9 +35,9 @@ sudo systemctl enable yolo-dev.service
 
 # Check if the service is running
 if systemctl is-active --quiet yolo-dev.service; then
-  echo "✅ YOLO service is running!"
+  echo "✅ YOLO service is running."
 else
   echo "❌ YOLO service failed to start."
-  sudo systemctl status yolo-dev.service --no-pager
+  journalctl -u yolo-dev.service --no-pager -n 20
   exit 1
 fi
