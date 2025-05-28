@@ -15,20 +15,13 @@ jobs:
 
       - name: Set up SSH and deploy
         env:
-          PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY}}
           EC2_HOST: ${{ secrets.DEV_YOLO_HOST }}
           EC2_USER: ${{ secrets.EC2_USERNAME }}
         run: |
           echo "$PRIVATE_KEY" > key.pem
           chmod 400 key.pem
-
           ssh -o StrictHostKeyChecking=no -i key.pem $EC2_USER@$EC2_HOST << 'EOF'
-            # Clone the repo only if the folder doesn't exist
-            if [ ! -d "/home/ubuntu/yolo-dev" ]; then
-              cd /home/ubuntu
-              git clone -b dev https://github.com/DeemaAbuHwaij/YoloService.git yolo-dev
-            fi
-
             cd /home/ubuntu/yolo-dev
             git pull origin dev
             bash deploy-dev.sh

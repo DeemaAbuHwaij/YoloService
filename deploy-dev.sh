@@ -2,6 +2,11 @@
 
 set -e
 
+# Ensure venv is installed (works for Ubuntu 22/24)
+echo "📦 Installing python3-venv if missing..."
+sudo apt-get update
+sudo apt-get install -y python3.12-venv
+
 PROJECT_DIR="$(pwd)"
 SERVICE_FILE="yolo-dev.service"
 VENV_PATH="$PROJECT_DIR/venv"
