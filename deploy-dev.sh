@@ -12,6 +12,16 @@ if [ ! -d "$VENV_PATH" ]; then
   python3 -m venv "$VENV_PATH"
 fi
 
+# Show contents of venv/bin to debug any missing activation script
+echo "📁 Contents of $VENV_PATH/bin:"
+ls -la "$VENV_PATH/bin"
+
+# Check that the activation script exists before sourcing
+if [ ! -f "$VENV_PATH/bin/activate" ]; then
+  echo "❌ Virtualenv activation script not found at $VENV_PATH/bin/activate"
+  exit 1
+fi
+
 # Activate venv and install dependencies
 echo "📦 Installing requirements..."
 source "$VENV_PATH/bin/activate"
