@@ -4,10 +4,11 @@ After=network.target
 
 [Service]
 User=ubuntu
-WorkingDirectory=/home/ubuntu/yolo-dev
-ExecStart=/home/ubuntu/yolo-dev/venv/bin/python3 /home/ubuntu/yolo-dev/app.py
+WorkingDirectory=/home/deema/PycharmProjects/YoloService
+ExecStart=/home/deema/PycharmProjects/YoloService/venv/bin/python3 /home/deema/PycharmProjects/YoloService/app.py
 Restart=always
-Environment=PYTHONUNBUFFERED=1
 
 [Install]
 WantedBy=multi-user.target
+
+
