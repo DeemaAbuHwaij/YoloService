@@ -2,7 +2,7 @@
 
 set -e
 
-echo "📦 Ensuring python3.12-venv is installed..."
+
 sudo apt-get update
 sudo apt-get install -y python3.12-venv
 
