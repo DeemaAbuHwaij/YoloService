@@ -3,14 +3,11 @@ Description=YOLO Dev Inference API Service
 After=network.target
 
 [Service]
-User=ubuntu
-
-ExecStart=/home/ubuntu/YoloService/venv/bin/python3 /home/ubuntu/YoloService/app.py
-WorkingDirectory=/home/ubuntu/YoloService
-
+WorkingDirectory=/home/ubuntu/yolo-dev
+ExecStart=/home/ubuntu/yolo-dev/venv/bin/python3 /home/ubuntu/yolo-dev/app.py
 Restart=always
+User=ubuntu
+Environment=ENV=development
 
 [Install]
 WantedBy=multi-user.target
-
-
