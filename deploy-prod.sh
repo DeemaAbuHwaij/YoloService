@@ -2,7 +2,7 @@
 
 set -e
 
-PROJECT_DIR="$(pwd)"
+PROJECT_DIR="$(pwd)"  # Use current working directory
 SERVICE_FILE="yolo-prod.service"
 VENV_PATH="$PROJECT_DIR/venv"
 
@@ -15,13 +15,6 @@ fi
 # Activate venv and install dependencies
 echo "📦 Installing requirements..."
 source "$VENV_PATH/bin/activate"
-
-# Fix for pip temporary directory issue
-echo "🛠️ Ensuring /tmp exists and is usable by current user..."
-sudo mkdir -p /tmp
-sudo chmod 1777 /tmp
-export TMPDIR=/tmp
-
 pip install --upgrade pip
 pip install -r "$PROJECT_DIR/requirements.txt"
 
@@ -47,40 +40,13 @@ fi
 
 # === OpenTelemetry Collector Setup ===
 echo "📡 Installing OpenTelemetry Collector..."
-
-# Free up disk space before install
-echo "🧹 Cleaning up disk space..."
-sudo apt-get clean
-sudo rm -rf /var/lib/apt/lists/*
-sudo rm -rf /var/log/*.gz /var/log/*.1 /var/log/journal/*
-sudo journalctl --vacuum-time=1d
-sudo apt-get autoremove -y
-
-# Check free space
-FREE_MB=$(df / | awk 'NR==2 {print $4 / 1024}')
-echo "📦 Free space available: ${FREE_MB} MB"
-if (( $(echo "$FREE_MB < 500" | bc -l) )); then
-  echo "❌ Not enough disk space (<500MB). Aborting otelcol install."
-  df -h
-  exit 1
-fi
-
-# Clean previous otelcol if it exists
-echo "🧹 Cleaning previous otelcol install (if any)..."
-sudo systemctl stop otelcol || true
-sudo rm -f /usr/bin/otelcol
-sudo rm -f /etc/systemd/system/otelcol.service
-sudo rm -rf /etc/otelcol
-
-# Download and install otelcol
 sudo apt-get update
 sudo apt-get -y install wget
-wget -O otelcol.deb https://github.com/open-telemetry/opentelemetry-collector-releases/releases/download/v0.127.0/otelcol_0.127.0_linux_amd64.deb
-sudo dpkg -i otelcol.deb
+wget https://github.com/open-telemetry/opentelemetry-collector-releases/releases/download/v0.127.0/otelcol_0.127.0_linux_amd64.deb
+sudo dpkg -i otelcol_0.127.0_linux_amd64.deb
 
 # Configure OpenTelemetry Collector
 echo "📝 Configuring OpenTelemetry Collector..."
-sudo mkdir -p /etc/otelcol
 sudo tee /etc/otelcol/config.yaml > /dev/null <<EOF
 receivers:
   hostmetrics:
@@ -105,14 +71,15 @@ service:
       exporters: [prometheus]
 EOF
 
-# Reload and restart otelcol
 sudo systemctl daemon-reexec
 sudo systemctl daemon-reload
 sudo systemctl enable otelcol
+
+# Restart the OpenTelemetry Collector service
 echo "🔁 Restarting OpenTelemetry Collector..."
 sudo systemctl restart otelcol
 
-# Final check
+# Check if otelcol is running
 if systemctl is-active --quiet otelcol; then
   echo "✅ OpenTelemetry Collector is running!"
 else
@@ -120,3 +87,5 @@ else
   sudo systemctl status otelcol --no-pager
   exit 1
 fi
+
+
