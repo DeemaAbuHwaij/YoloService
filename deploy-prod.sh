@@ -2,12 +2,6 @@
 
 set -e
 
-echo "Checking /tmp directory..."
-ls -ld /tmp
-df -h /
-
-
-
 PROJECT_DIR="$(pwd)"  # Use current working directory
 SERVICE_FILE="yolo-prod.service"
 VENV_PATH="$PROJECT_DIR/venv"
@@ -44,12 +38,23 @@ else
   exit 1
 fi
 
+
+
 # === OpenTelemetry Collector Setup ===
 echo "📡 Installing OpenTelemetry Collector..."
+
+# Free up disk space before install
+echo "🧹 Cleaning up disk space..."
+sudo apt-get clean
+sudo rm -rf /var/lib/apt/lists/*
+sudo journalctl --vacuum-time=1d
+df -h
+
 sudo apt-get update
 sudo apt-get -y install wget
 wget https://github.com/open-telemetry/opentelemetry-collector-releases/releases/download/v0.127.0/otelcol_0.127.0_linux_amd64.deb
 sudo dpkg -i otelcol_0.127.0_linux_amd64.deb
+
 
 # Configure OpenTelemetry Collector
 echo "📝 Configuring OpenTelemetry Collector..."
@@ -84,3 +89,12 @@ sudo systemctl enable otelcol
 # Restart the OpenTelemetry Collector service
 echo "🔁 Restarting OpenTelemetry Collector..."
 sudo systemctl restart otelcol
+
+# Check if otelcol is running
+if systemctl is-active --quiet otelcol; then
+  echo "✅ OpenTelemetry Collector is running!"
+else
+  echo "❌ otelcol failed to start."
+  sudo systemctl status otelcol --no-pager
+  exit 1
+fi
