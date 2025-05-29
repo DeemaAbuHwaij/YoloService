@@ -45,4 +45,3 @@ curl -X POST -F "file=@your_image.jpg" http://localhost:8080/predict
 ```bash
 curl http://localhost:8080/prediction/{uid}
 
-
