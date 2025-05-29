@@ -2,9 +2,10 @@
 
 set -e
 
-# Ensure a usable temporary directory exists
-export TMPDIR="$PROJECT_DIR/tmp"
-mkdir -p "$TMPDIR"
+echo "Checking /tmp directory..."
+ls -ld /tmp
+df -h /
+
 
 
 PROJECT_DIR="$(pwd)"  # Use current working directory
