@@ -16,6 +16,7 @@ fi
 echo "📦 Installing requirements..."
 source "$VENV_PATH/bin/activate"
 pip install --upgrade pip
+pip install -r "$PROJECT_DIR/torch-requirements.txt"
 pip install -r "$PROJECT_DIR/requirements.txt"
 
 # Copy systemd service file
