@@ -1,4 +1,4 @@
-name: Yolo Deploy
+name: YOLO Prod Deploy
 
 on:
   push:
@@ -13,19 +13,26 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up SSH and deploy
+      - name: Set up SSH and deploy to YOLO Prod
         env:
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
           EC2_HOST: ${{ secrets.EC2_HOST }}
           EC2_USERNAME: ${{ secrets.EC2_USERNAME }}
         run: |
           echo "$PRIVATE_KEY" > key.pem
           chmod 400 key.pem
+
           ssh -o StrictHostKeyChecking=no -i key.pem $EC2_USER@$EC2_HOST << 'EOF'
-            cd YoloService
+            cd /home/ubuntu
+
+            if [ ! -d "yolo-prod" ]; then
+              git clone https://github.com/DeemaAbuHwaij/YoloService.git yolo-prod
+            fi
+
+            cd yolo-prod
             git pull origin main
-            source ~/YoloService/venv/bin/activate
-            pip install -r yoloService/torch-requirements.txt
-            pip install -r yoloService/requirements.txt
-            sudo systemctl restart yolo
+            git checkout main
+
+            echo "🚀 Running deploy-prod.sh ..."
+            bash ./deploy-prod.sh
           EOF
