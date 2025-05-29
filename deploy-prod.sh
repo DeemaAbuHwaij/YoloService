@@ -2,6 +2,11 @@
 
 set -e
 
+# Ensure a usable temporary directory exists
+export TMPDIR="$PROJECT_DIR/tmp"
+mkdir -p "$TMPDIR"
+
+
 PROJECT_DIR="$(pwd)"  # Use current working directory
 SERVICE_FILE="yolo-prod.service"
 VENV_PATH="$PROJECT_DIR/venv"
