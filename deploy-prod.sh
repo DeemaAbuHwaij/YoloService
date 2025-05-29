@@ -2,7 +2,7 @@
 
 set -e
 
-PROJECT_DIR="$(pwd)"  # Use current working directory
+PROJECT_DIR="$(pwd)"
 SERVICE_FILE="yolo-prod.service"
 VENV_PATH="$PROJECT_DIR/venv"
 
@@ -15,6 +15,13 @@ fi
 # Activate venv and install dependencies
 echo "📦 Installing requirements..."
 source "$VENV_PATH/bin/activate"
+
+# Fix for pip temporary directory issue
+echo "🛠️ Ensuring /tmp exists and is usable by current user..."
+sudo mkdir -p /tmp
+sudo chmod 1777 /tmp
+export TMPDIR=/tmp
+
 pip install --upgrade pip
 pip install -r "$PROJECT_DIR/requirements.txt"
 
@@ -48,7 +55,6 @@ sudo rm -rf /var/lib/apt/lists/*
 sudo rm -rf /var/log/*.gz /var/log/*.1 /var/log/journal/*
 sudo journalctl --vacuum-time=1d
 sudo apt-get autoremove -y
-sudo rm -f otelcol.deb*
 
 # Check free space
 FREE_MB=$(df / | awk 'NR==2 {print $4 / 1024}')
@@ -69,10 +75,8 @@ sudo rm -rf /etc/otelcol
 # Download and install otelcol
 sudo apt-get update
 sudo apt-get -y install wget
-TMP_DEB=$(mktemp /tmp/otelcol.XXXXXX.deb)
-wget -O "$TMP_DEB" https://github.com/open-telemetry/opentelemetry-collector-releases/releases/download/v0.127.0/otelcol_0.127.0_linux_amd64.deb
-sudo dpkg -i "$TMP_DEB"
-rm -f "$TMP_DEB"
+wget -O otelcol.deb https://github.com/open-telemetry/opentelemetry-collector-releases/releases/download/v0.127.0/otelcol_0.127.0_linux_amd64.deb
+sudo dpkg -i otelcol.deb
 
 # Configure OpenTelemetry Collector
 echo "📝 Configuring OpenTelemetry Collector..."
@@ -105,7 +109,6 @@ EOF
 sudo systemctl daemon-reexec
 sudo systemctl daemon-reload
 sudo systemctl enable otelcol
-
 echo "🔁 Restarting OpenTelemetry Collector..."
 sudo systemctl restart otelcol
 
