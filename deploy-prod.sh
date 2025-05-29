@@ -39,7 +39,6 @@ else
 fi
 
 
-
 # === OpenTelemetry Collector Setup ===
 echo "📡 Installing OpenTelemetry Collector..."
 
@@ -50,10 +49,18 @@ sudo rm -rf /var/lib/apt/lists/*
 sudo journalctl --vacuum-time=1d
 df -h
 
+# Clean broken otelcol install if it exists
+echo "🧹 Cleaning previous otelcol install if corrupted..."
+sudo systemctl stop otelcol || true
+sudo rm -f /usr/bin/otelcol
+sudo rm -f /etc/systemd/system/otelcol.service
+sudo rm -rf /etc/otelcol
+
+# Reinstall otelcol
 sudo apt-get update
 sudo apt-get -y install wget
-wget https://github.com/open-telemetry/opentelemetry-collector-releases/releases/download/v0.127.0/otelcol_0.127.0_linux_amd64.deb
-sudo dpkg -i otelcol_0.127.0_linux_amd64.deb
+wget -O otelcol.deb https://github.com/open-telemetry/opentelemetry-collector-releases/releases/download/v0.127.0/otelcol_0.127.0_linux_amd64.deb
+sudo dpkg -i otelcol.deb
 
 
 # Configure OpenTelemetry Collector
