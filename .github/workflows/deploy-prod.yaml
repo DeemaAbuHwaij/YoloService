@@ -30,16 +30,30 @@ jobs:
           chmod 400 key.pem
 
           ssh -o StrictHostKeyChecking=no -i key.pem $EC2_USER@$EC2_HOST << 'EOF'
+            set -e  # Exit immediately if a command fails
+
             cd /home/ubuntu
 
+            # Clone the repo if it doesn't exist
             if [ ! -d "yolo-prod" ]; then
               git clone https://github.com/DeemaAbuHwaij/YoloService.git yolo-prod
             fi
 
             cd yolo-prod
-            git pull origin main
+
+            # Make sure we're on the main branch and up to date
+            git fetch origin
             git checkout main
+            git pull origin main
+
+            # Force TMPDIR inside EC2
+            export TMPDIR=/tmp
+            sudo mkdir -p "\$TMPDIR"
+            sudo chmod 1777 "\$TMPDIR"
 
             echo "🚀 Running deploy-prod.sh ..."
             bash ./deploy-prod.sh
           EOF
+
+      - name: Cleanup key
+        run: rm -f key.pem
