@@ -78,14 +78,3 @@ sudo systemctl enable otelcol
 # Restart the OpenTelemetry Collector service
 echo "🔁 Restarting OpenTelemetry Collector..."
 sudo systemctl restart otelcol
-
-# Check if otelcol is running
-if systemctl is-active --quiet otelcol; then
-  echo "✅ OpenTelemetry Collector is running!"
-else
-  echo "❌ otelcol failed to start."
-  sudo systemctl status otelcol --no-pager
-  exit 1
-fi
-
-
