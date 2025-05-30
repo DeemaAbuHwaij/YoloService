@@ -8,6 +8,8 @@ ExecStart=/home/ubuntu/yolo-dev/venv/bin/python3 /home/ubuntu/yolo-dev/app.py
 Restart=always
 User=ubuntu
 Environment=ENV=development
+Environment=AWS_S3_BUCKET=deema-polybot-dev-images
+Environment=AWS_REGION=us-west-1
 
 [Install]
 WantedBy=multi-user.target
