@@ -120,10 +120,14 @@ async def predict(request: Request, file: Optional[UploadFile] = File(None)):
     # Case 2: Direct file upload
     elif file:
         ext = os.path.splitext(file.filename)[1]
+        image_name = file.filename  # <-- force image_name for S3 key
+        chat_id = "dev-test"  # <-- fallback for upload test
+
         original_path = os.path.join(UPLOAD_DIR, uid + ext)
         predicted_path = os.path.join(PREDICTED_DIR, uid + ext)
         with open(original_path, "wb") as f_out:
             shutil.copyfileobj(file.file, f_out)
+
 
     else:
         raise HTTPException(status_code=400, detail="❌ No image file or image name provided.")

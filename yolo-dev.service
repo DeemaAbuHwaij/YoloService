@@ -10,6 +10,8 @@ User=ubuntu
 Environment=ENV=development
 Environment=AWS_S3_BUCKET=deema-polybot-dev-images
 Environment=AWS_REGION=us-west-1
+Environment=PYTHONUNBUFFERED=1
+
 
 [Install]
 WantedBy=multi-user.target
