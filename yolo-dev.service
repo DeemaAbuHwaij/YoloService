@@ -4,7 +4,7 @@ After=network.target
 
 [Service]
 WorkingDirectory=/home/ubuntu/yolo-dev
-ExecStart=/home/ubuntu/yolo-dev/venv/bin/python3 /home/ubuntu/yolo-dev/app.py
+ExecStart=/home/ubuntu/yolo-dev/venv/bin/python /home/ubuntu/yolo-dev/app.py
 Restart=always
 User=ubuntu
 Environment=ENV=development
