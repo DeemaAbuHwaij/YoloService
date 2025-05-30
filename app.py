@@ -98,7 +98,7 @@ async def predict(request: Request, file: Optional[UploadFile] = File(None)):
 
     # Case 1: Download from S3
     if image_name and chat_id:
-        print("🧪 DEBUG S3 upload triggered")
+        print("🧪 DEBUG S3 upload triggered", flush=True)
         print("🧪 ENV AWS_S3_BUCKET:", os.getenv("AWS_S3_BUCKET"))
         print("🧪 ENV AWS_REGION:", os.getenv("AWS_REGION"))
         print("🧪 predicted_path exists:", os.path.exists(predicted_path))
