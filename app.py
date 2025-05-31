@@ -97,13 +97,14 @@ async def predict(request: Request, file: Optional[UploadFile] = File(None)):
     predicted_path = os.path.join(PREDICTED_DIR, uid + ext)
 
     # Case 1: Download from S3
+    print("🧪 DEBUG S3 upload triggered", flush=True)
+    print("🧪 ENV AWS_S3_BUCKET:", os.getenv("AWS_S3_BUCKET"))
+    print("🧪 ENV AWS_REGION:", os.getenv("AWS_REGION"))
+    print("🧪 predicted_path exists:", os.path.exists(predicted_path))
+    print("🧪 predicted_path:", predicted_path)
+    print("🧪 S3 key:", f"{chat_id}/predicted/{image_name}")
+
     if image_name and chat_id:
-        print("🧪 DEBUG S3 upload triggered", flush=True)
-        print("🧪 ENV AWS_S3_BUCKET:", os.getenv("AWS_S3_BUCKET"))
-        print("🧪 ENV AWS_REGION:", os.getenv("AWS_REGION"))
-        print("🧪 predicted_path exists:", os.path.exists(predicted_path))
-        print("🧪 predicted_path:", predicted_path)
-        print("🧪 S3 key:", f"{chat_id}/predicted/{image_name}")
 
         bucket = os.getenv("AWS_S3_BUCKET")
         region = os.getenv("AWS_REGION")
