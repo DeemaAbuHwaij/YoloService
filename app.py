@@ -107,6 +107,8 @@ async def predict(request: Request, file: Optional[UploadFile] = File(None)):
 
         bucket = os.getenv("AWS_S3_BUCKET")
         region = os.getenv("AWS_REGION")
+        print("🌍 ENV VARS >>>", os.getenv("AWS_S3_BUCKET"), os.getenv("AWS_REGION"))
+
         if not bucket:
             raise HTTPException(status_code=500, detail="❌ AWS_S3_BUCKET env var not set.")
         s3_key = f"{chat_id}/original/{image_name}"
