@@ -152,11 +152,17 @@ async def predict(request: Request, file: Optional[UploadFile] = File(None)):
         save_detection_object(uid, label, score, bbox)
         detected_labels.append(label)
 
+    # ✅ Debug before attempting to upload
+    print(f"🧪 predicted_path = {predicted_path}")
+    print(f"🧪 File exists? {os.path.exists(predicted_path)}")
+    print(f"🧪 image_name = {image_name}, chat_id = {chat_id}")
+
     # Upload predicted image to S3
     if image_name and chat_id:
         try:
             bucket = os.getenv("AWS_S3_BUCKET")
             region = os.getenv("AWS_REGION")
+            print(f"📦 AWS_S3_BUCKET = {bucket}, AWS_REGION = {region}")
             predicted_s3_key = f"{chat_id}/predicted/{image_name}"
             s3 = boto3.client("s3", region_name=region)
             s3.upload_file(predicted_path, bucket, predicted_s3_key)
