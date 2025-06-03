@@ -13,7 +13,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up SSH and deploy
+      - name: Set up SSH and deploy to YOLO EC2
         env:
           PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
           EC2_HOST: ${{ secrets.DEV_YOLO_HOST }}
@@ -21,31 +21,25 @@ jobs:
         run: |
           echo "$PRIVATE_KEY" > key.pem
           chmod 400 key.pem
+
           ssh -o StrictHostKeyChecking=no -i key.pem $EC2_USER@$EC2_HOST << 'EOF'
-            # Clone the repo if not exists
-            cd /home/ubuntu || exit 1
+            cd /home/ubuntu
+
+            # Clone repo if not exists
             if [ ! -d "yolo-dev" ]; then
               git clone https://github.com/DeemaAbuHwaij/YoloService.git yolo-dev
             fi
 
             cd yolo-dev
+
+            # Clean up old Git issues
+            rm -f .git/index.lock
+            git gc --prune=now
+            git fsck --full || true
+
+            git checkout dev
             git pull origin dev
 
-            # Ensure Python and pip are installed
-            sudo apt-get update
-            sudo apt-get install -y python3-venv python3-pip
-
-            # Create virtual environment if missing
-            if [ ! -d "venv" ]; then
-              python3 -m venv venv
-            fi
-
-            source venv/bin/activate
-            pip install --upgrade pip
-            pip install -r torch-requirements.txt
-            pip install -r requirements.txt
-
-            # Restart correct service
-            sudo systemctl restart yolo-dev.service
-            sudo systemctl status yolo-dev.service
+            # Run the deployment script
+            bash deploy-dev.sh
           EOF

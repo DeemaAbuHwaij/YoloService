@@ -41,3 +41,40 @@ else
   journalctl -u yolo-dev.service --no-pager -n 20
   exit 1
 fi
+
+# === OpenTelemetry Collector Setup ===
+echo "📡 Installing OpenTelemetry Collector..."
+sudo apt-get update
+sudo apt-get -y install wget
+wget https://github.com/open-telemetry/opentelemetry-collector-releases/releases/download/v0.127.0/otelcol_0.127.0_linux_amd64.deb
+sudo dpkg -i otelcol_0.127.0_linux_amd64.deb
+
+# Configure OpenTelemetry Collector
+echo "📝 Configuring OpenTelemetry Collector..."
+sudo tee /etc/otelcol/config.yaml > /dev/null <<EOF
+receivers:
+  hostmetrics:
+    collection_interval: 15s
+    scrapers:
+      cpu:
+      memory:
+      disk:
+      filesystem:
+      load:
+      network:
+      processes:
+
+exporters:
+  prometheus:
+    endpoint: "0.0.0.0:8889"
+
+service:
+  pipelines:
+    metrics:
+      receivers: [hostmetrics]
+      exporters: [prometheus]
+EOF
+
+# Restart the OpenTelemetry Collector service
+echo "🔁 Restarting OpenTelemetry Collector..."
+sudo systemctl restart otelcol
