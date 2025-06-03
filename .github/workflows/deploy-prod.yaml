@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - feature/user_images_upload_to_s3
   workflow_dispatch:
 
 env:
@@ -43,9 +42,10 @@ jobs:
           if [ -d ~/${REPO_NAME} ]; then
             cd ~/${REPO_NAME}
             git fetch origin
-            git reset --hard origin/feature/user_images_upload_to_s3
+            git reset --hard origin/main
+            git clean -fd
           else
-            git clone --branch feature/user_images_upload_to_s3 ${REPO_URL} ~/${REPO_NAME}
+            git clone ${REPO_URL} ~/${REPO_NAME}
           fi
           EOF
 
