@@ -1,59 +1,35 @@
-name: YOLO Prod Deploy
+- name: Set up SSH and deploy to YOLO Prod
+  env:
+    PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+    EC2_HOST: ${{ secrets.EC2_HOST }}
+    EC2_USER: ${{ secrets.EC2_USERNAME }}
+  run: |
+    echo "$PRIVATE_KEY" > key.pem
+    chmod 400 key.pem
 
-on:
-  push:
-    branches:
-      - main
+    ssh -o StrictHostKeyChecking=no -i key.pem $EC2_USER@$EC2_HOST << 'EOF'
+      set -e  # Exit on error
 
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
+      cd /home/ubuntu
 
-    steps:
-      - name: Ensure temp directory exists
-        run: |
-          sudo mkdir -p /tmp
-          sudo chmod 1777 /tmp
-          export TMPDIR=/tmp
-          echo "TMPDIR=/tmp" >> $GITHUB_ENV
+      if [ ! -d "yolo-prod" ]; then
+        echo "📥 Cloning repo..."
+        git clone https://github.com/DeemaAbuHwaij/YoloService.git yolo-prod
+      fi
 
-      - name: Checkout code
-        uses: actions/checkout@v4
+      cd yolo-prod
 
-      - name: Set up SSH and deploy to YOLO Prod
-        env:
-          PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          EC2_HOST: ${{ secrets.EC2_HOST }}
-          EC2_USER: ${{ secrets.EC2_USERNAME }}
-        run: |
-          echo "$PRIVATE_KEY" > key.pem
-          chmod 400 key.pem
+      echo "🧹 Resetting local repo state..."
+      git fetch origin
+      git checkout main
+      git reset --hard
+      git clean -fd
+      git pull origin main
 
-          ssh -o StrictHostKeyChecking=no -i key.pem $EC2_USER@$EC2_HOST << 'EOF'
-            set -e  # Exit immediately if a command fails
+      export TMPDIR=/tmp
+      sudo mkdir -p "\$TMPDIR"
+      sudo chmod 1777 "\$TMPDIR"
 
-            cd /home/ubuntu
-
-            # Clone the repo if it doesn't exist
-            if [ ! -d "yolo-prod" ]; then
-              git clone https://github.com/DeemaAbuHwaij/YoloService.git yolo-prod
-            fi
-
-            cd yolo-prod
-
-            # Make sure we're on the main branch and up to date
-            git fetch origin
-            git checkout main
-            git pull origin main
-
-            # Force TMPDIR inside EC2
-            export TMPDIR=/tmp
-            sudo mkdir -p "\$TMPDIR"
-            sudo chmod 1777 "\$TMPDIR"
-
-            echo "🚀 Running deploy-prod.sh ..."
-            bash ./deploy-prod.sh
-          EOF
-
-      - name: Cleanup key
-        run: rm -f key.pem
+      echo "🚀 Running deploy-prod.sh ..."
+      bash ./deploy-prod.sh
+    EOF
