@@ -36,15 +36,27 @@ jobs:
             StrictHostKeyChecking no
           EOF
 
-      - name: Copy script to EC2
+      - name: Force clone or reset latest repo on EC2
         run: |
-          ssh ec2 "if [ -d ~/${REPO_NAME} ]; then cd ~/${REPO_NAME} && git pull --rebase; else git clone --branch feature/user_images_upload_to_s3 ${REPO_URL} ~/${REPO_NAME}; fi"
+          ssh ec2 << 'EOF'
+          set -e
+          if [ -d ~/${REPO_NAME} ]; then
+            cd ~/${REPO_NAME}
+            git fetch origin
+            git reset --hard origin/feature/user_images_upload_to_s3
+          else
+            git clone --branch feature/user_images_upload_to_s3 ${REPO_URL} ~/${REPO_NAME}
+          fi
+          EOF
+
+      - name: Copy script and service file to EC2
+        run: |
           scp deploy.sh yolo.service ec2:~/${REPO_NAME}/
 
       - name: Execute script on EC2
         run: |
           ssh ec2 "cd ~/${REPO_NAME} && ls -la && bash deploy.sh"
+
       - name: Debug EC2 files
         run: |
           ssh ec2 "cd ~/${REPO_NAME} && ls -la && cat deploy.sh"
-          
