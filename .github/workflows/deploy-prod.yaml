@@ -1,49 +1,59 @@
-name: Yolo Deploy
+name: YOLO Prod Deploy
 
 on:
   push:
     branches:
       - main
-      - feature/user_images_upload_to_s3
-  workflow_dispatch:
-
-env:
-  REPO_URL: ${{ github.server_url }}/${{ github.repository }}.git
-  REPO_NAME: ${{ github.event.repository.name }}
 
 jobs:
-  Deploy:
+  deploy:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Ensure temp directory exists
+        run: |
+          sudo mkdir -p /tmp
+          sudo chmod 1777 /tmp
+          export TMPDIR=/tmp
+          echo "TMPDIR=/tmp" >> $GITHUB_ENV
+
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Configure SSH
+      - name: Set up SSH and deploy to YOLO Prod
         env:
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
           EC2_HOST: ${{ secrets.EC2_HOST }}
-          EC2_USERNAME: ${{ secrets.EC2_USERNAME }}
+          EC2_USER: ${{ secrets.EC2_USERNAME }}
         run: |
-          mkdir -p ~/.ssh
-          echo "$SSH_PRIVATE_KEY" > ~/.ssh/private_key
-          chmod 600 ~/.ssh/private_key
-          cat > ~/.ssh/config << EOF
-          Host ec2
-            HostName $EC2_HOST
-            User $EC2_USERNAME
-            IdentityFile ~/.ssh/private_key
-            StrictHostKeyChecking no
+          echo "$PRIVATE_KEY" > key.pem
+          chmod 400 key.pem
+
+          ssh -o StrictHostKeyChecking=no -i key.pem $EC2_USER@$EC2_HOST << 'EOF'
+            set -e  # Exit immediately if a command fails
+
+            cd /home/ubuntu
+
+            # Clone the repo if it doesn't exist
+            if [ ! -d "yolo-prod" ]; then
+              git clone https://github.com/DeemaAbuHwaij/YoloService.git yolo-prod
+            fi
+
+            cd yolo-prod
+
+            # Make sure we're on the main branch and up to date
+            git fetch origin
+            git checkout main
+            git pull origin main
+
+            # Force TMPDIR inside EC2
+            export TMPDIR=/tmp
+            sudo mkdir -p "\$TMPDIR"
+            sudo chmod 1777 "\$TMPDIR"
+
+            echo "🚀 Running deploy-prod.sh ..."
+            bash ./deploy-prod.sh
           EOF
 
-      - name: Copy script to EC2
-        run: |
-          ssh ec2 "if [ -d ~/${REPO_NAME} ]; then cd ~/${REPO_NAME} && git pull; else git clone --branch feature/user_images_upload_to_s3 ${REPO_URL} ~/${REPO_NAME}; fi"
-          scp deploy.sh yolo.service ec2:~/${REPO_NAME}/
-
-      - name: Execute script on EC2
-        run: |
-          ssh ec2 "cd ~/${REPO_NAME} && ls -la && bash deploy.sh"
-      - name: Debug EC2 files
-        run: |
-          ssh ec2 "cd ~/${REPO_NAME} && ls -la && cat deploy.sh"
+      - name: Cleanup key
+        run: rm -f key.pem
