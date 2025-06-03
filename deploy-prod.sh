@@ -16,6 +16,7 @@ fi
 echo "📦 Installing requirements..."
 source "$VENV_PATH/bin/activate"
 pip install --upgrade pip
+pip install -r "$PROJECT_DIR/torch-requirements.txt"
 pip install -r "$PROJECT_DIR/requirements.txt"
 
 # Copy systemd service file
@@ -35,5 +36,66 @@ if systemctl is-active --quiet yolo-prod.service; then
 else
   echo "❌ YOLO service failed to start."
   sudo systemctl status yolo-prod.service --no-pager
+  exit 1
+fi
+
+
+
+# === OpenTelemetry Collector Setup ===
+echo "📡 Installing OpenTelemetry Collector..."
+
+# Free up disk space before install
+echo "🧹 Cleaning up disk space..."
+sudo apt-get clean
+sudo rm -rf /var/lib/apt/lists/*
+sudo journalctl --vacuum-time=1d
+df -h
+
+sudo apt-get update
+sudo apt-get -y install wget
+wget https://github.com/open-telemetry/opentelemetry-collector-releases/releases/download/v0.127.0/otelcol_0.127.0_linux_amd64.deb
+sudo dpkg -i otelcol_0.127.0_linux_amd64.deb
+
+
+# Configure OpenTelemetry Collector
+echo "📝 Configuring OpenTelemetry Collector..."
+sudo tee /etc/otelcol/config.yaml > /dev/null <<EOF
+receivers:
+  hostmetrics:
+    collection_interval: 15s
+    scrapers:
+      cpu:
+      memory:
+      disk:
+      filesystem:
+      load:
+      network:
+      processes:
+
+exporters:
+  prometheus:
+    endpoint: "0.0.0.0:8889"
+
+service:
+  pipelines:
+    metrics:
+      receivers: [hostmetrics]
+      exporters: [prometheus]
+EOF
+
+sudo systemctl daemon-reexec
+sudo systemctl daemon-reload
+sudo systemctl enable otelcol
+
+# Restart the OpenTelemetry Collector service
+echo "🔁 Restarting OpenTelemetry Collector..."
+sudo systemctl restart otelcol
+
+# Check if otelcol is running
+if systemctl is-active --quiet otelcol; then
+  echo "✅ OpenTelemetry Collector is running!"
+else
+  echo "❌ otelcol failed to start."
+  sudo systemctl status otelcol --no-pager
   exit 1
 fi
