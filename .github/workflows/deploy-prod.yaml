@@ -47,3 +47,4 @@ jobs:
       - name: Debug EC2 files
         run: |
           ssh ec2 "cd ~/${REPO_NAME} && ls -la && cat deploy.sh"
+          
