@@ -8,6 +8,10 @@ WorkingDirectory=/home/ubuntu/PycharmProjects/YoloService
 ExecStart=/home/ubuntu/PycharmProjects/YoloService/venv/bin/python3 /home/ubuntu/PycharmProjects/YoloService/app.py
 Restart=always
 Environment=PYTHONUNBUFFERED=1
+Environment=ENV=development
+Environment=AWS_S3_BUCKET=deema-polybot-images
+Environment=AWS_REGION=us-west-1
+Environment=PYTHONUNBUFFERED=1
 
 [Install]
 WantedBy=multi-user.target
