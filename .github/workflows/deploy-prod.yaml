@@ -1,35 +1,59 @@
-- name: Set up SSH and deploy to YOLO Prod
-  env:
-    PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-    EC2_HOST: ${{ secrets.EC2_HOST }}
-    EC2_USER: ${{ secrets.EC2_USERNAME }}
-  run: |
-    echo "$PRIVATE_KEY" > key.pem
-    chmod 400 key.pem
+name: YOLO Prod Deploy
 
-    ssh -o StrictHostKeyChecking=no -i key.pem $EC2_USER@$EC2_HOST << 'EOF'
-      set -e  # Exit on error
+on:
+  push:
+    branches:
+      - main
 
-      cd /home/ubuntu
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
 
-      if [ ! -d "yolo-prod" ]; then
-        echo "📥 Cloning repo..."
-        git clone https://github.com/DeemaAbuHwaij/YoloService.git yolo-prod
-      fi
+    steps:
+      - name: Ensure temp directory exists
+        run: |
+          sudo mkdir -p /tmp
+          sudo chmod 1777 /tmp
+          echo "TMPDIR=/tmp" >> $GITHUB_ENV
 
-      cd yolo-prod
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      echo "🧹 Resetting local repo state..."
-      git fetch origin
-      git checkout main
-      git reset --hard
-      git clean -fd
-      git pull origin main
+      - name: Set up SSH and deploy to YOLO Prod
+        env:
+          PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ${{ secrets.EC2_USERNAME }}
+        run: |
+          echo "$PRIVATE_KEY" > key.pem
+          chmod 400 key.pem
 
-      export TMPDIR=/tmp
-      sudo mkdir -p "\$TMPDIR"
-      sudo chmod 1777 "\$TMPDIR"
+          ssh -o StrictHostKeyChecking=no -i key.pem $EC2_USER@$EC2_HOST << 'EOF'
+            set -e  # Exit immediately on error
 
-      echo "🚀 Running deploy-prod.sh ..."
-      bash ./deploy-prod.sh
-    EOF
+            cd /home/ubuntu
+
+            if [ ! -d "yolo-prod" ]; then
+              echo "📥 Cloning fresh repo..."
+              git clone https://github.com/DeemaAbuHwaij/YoloService.git yolo-prod
+            fi
+
+            cd yolo-prod
+
+            echo "🧹 Cleaning local repo and pulling latest changes..."
+            git fetch origin
+            git checkout main
+            git reset --hard
+            git clean -fd
+            git pull origin main
+
+            export TMPDIR=/tmp
+            sudo mkdir -p "\$TMPDIR"
+            sudo chmod 1777 "\$TMPDIR"
+
+            echo "🚀 Running deploy-prod.sh ..."
+            bash ./deploy-prod.sh
+          EOF
+
+      - name: Cleanup key
+        run: rm -f key.pem
