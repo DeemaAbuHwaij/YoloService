@@ -14,7 +14,6 @@ jobs:
         run: |
           sudo mkdir -p /tmp
           sudo chmod 1777 /tmp
-          export TMPDIR=/tmp
           echo "TMPDIR=/tmp" >> $GITHUB_ENV
 
       - name: Checkout code
@@ -34,19 +33,20 @@ jobs:
 
             cd /home/ubuntu
 
-            # Clone the repo if it doesn't exist
             if [ ! -d "yolo-prod" ]; then
+              echo "📥 Cloning fresh repo..."
               git clone https://github.com/DeemaAbuHwaij/YoloService.git yolo-prod
             fi
 
             cd yolo-prod
 
-            # Make sure we're on the main branch and up to date
+            echo "🧹 Cleaning local repo and pulling latest changes..."
             git fetch origin
             git checkout main
+            git reset --hard
+            git clean -fd
             git pull origin main
 
-            # Force TMPDIR inside EC2
             export TMPDIR=/tmp
             sudo mkdir -p "\$TMPDIR"
             sudo chmod 1777 "\$TMPDIR"
