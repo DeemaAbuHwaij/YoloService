@@ -94,15 +94,6 @@ def save_detection_object(prediction_uid, label, score, box):
         """, (prediction_uid, label, score, str(box)))
 
 
-def download_from_s3(bucket_name, s3_key, local_path):
-    s3 = boto3.client('s3', region_name=os.getenv("AWS_REGION"))
-    try:
-        s3.download_file(bucket_name, s3_key, local_path)
-        return True
-    except ClientError as e:
-        print(f"❌ Failed to download from S3: {e}")
-        return False
-
 
 @app.post("/predict")
 async def predict(request: Request, file: Optional[UploadFile] = File(None)):

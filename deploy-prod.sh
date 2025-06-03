@@ -2,8 +2,8 @@
 
 set -e
 
-PROJECT_DIR="/home/deema/PycharmProjects/YoloService"
-SERVICE_FILE="yolo.service"
+PROJECT_DIR="$(pwd)"  # Use current working directory
+SERVICE_FILE="yolo-prod.service"
 VENV_PATH="$PROJECT_DIR/venv"
 
 # Create venv if it doesn't exist
@@ -26,14 +26,14 @@ sudo cp "$PROJECT_DIR/$SERVICE_FILE" /etc/systemd/system/
 echo "🔄 Reloading and restarting YOLO service..."
 sudo systemctl daemon-reexec
 sudo systemctl daemon-reload
-sudo systemctl restart yolo.service
-sudo systemctl enable yolo.service
+sudo systemctl restart yolo-prod.service
+sudo systemctl enable yolo-prod.service
 
 # Check if the service is running
-if systemctl is-active --quiet yolo.service; then
+if systemctl is-active --quiet yolo-prod.service; then
   echo "✅ YOLO service is running!"
 else
   echo "❌ YOLO service failed to start."
-  sudo systemctl status yolo.service --no-pager
+  sudo systemctl status yolo-prod.service --no-pager
   exit 1
 fi

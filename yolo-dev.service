@@ -1,0 +1,15 @@
+[Unit]
+Description=YOLO Dev Inference API Service
+After=network.target
+
+[Service]
+User=ubuntu
+
+WorkingDirectory=/home/ubuntu/PycharmProjects/YoloService
+ExecStart=/home/ubuntu/PycharmProjects/YoloService/venv/bin/python3 /home/ubuntu/PycharmProjects/YoloService/app.py
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+
+
