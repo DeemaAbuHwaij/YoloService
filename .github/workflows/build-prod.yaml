@@ -18,7 +18,7 @@ jobs:
         run: |
           echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
 
-      - name: Build and Push Docker Image
+      - name: Build & Push Docker Image
         id: meta
         run: |
           IMAGE=${{ secrets.DOCKERHUB_USERNAME }}/yolo-prod:${{ github.run_number }}
@@ -30,4 +30,10 @@ jobs:
     needs: Build
     uses: ./.github/workflows/deploy-prod.yaml
     with:
-      image: ${{ jobs.Build.outputs.image }}
+      image: ${{ needs.Build.outputs.image }}
+    secrets:
+      SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+      PROD_EC2_HOST: ${{ secrets.PROD_EC2_HOST }}
+      EC2_USERNAME: ${{ secrets.EC2_USERNAME }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      AWS_S3_BUCKET_PROD: ${{ secrets.AWS_S3_BUCKET_PROD }}
