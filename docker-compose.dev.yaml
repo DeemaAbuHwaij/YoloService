@@ -1,8 +1,6 @@
-version: '3.8'
-
 services:
   yolo:
-    image: ${IMG_NAME}
+    image: "${IMG_NAME}"
     ports:
       - "8080:8080"
     environment:
