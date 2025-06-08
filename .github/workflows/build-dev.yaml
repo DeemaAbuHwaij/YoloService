@@ -22,9 +22,12 @@ jobs:
         id: meta
         run: |
           IMAGE=${{ secrets.DOCKERHUB_USERNAME }}/yolo-dev:${{ github.run_number }}
+          echo "✅ IMAGE=$IMAGE"
           echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
           docker build -t $IMAGE .
           docker push $IMAGE
+        outputs:
+          image: ${{ steps.meta.outputs.image }}  # ✅ THIS must match job.outputs
 
   Deploy:
     needs: Build
@@ -37,4 +40,3 @@ jobs:
       EC2_USERNAME: ${{ secrets.EC2_USERNAME }}
       AWS_REGION: ${{ secrets.AWS_REGION }}
       AWS_S3_BUCKET_DEV: ${{ secrets.AWS_S3_BUCKET_DEV }}
-

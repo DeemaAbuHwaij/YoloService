@@ -45,6 +45,11 @@ jobs:
           echo "✅ EC2_HOST raw -> |$EC2_HOST|"
           echo "✅ EC2_HOST length: ${#EC2_HOST}"
 
+      - name: Print image value
+        run: |
+          echo "✅ inputs.image = '${{ inputs.image }}'"
+    
+
       - name: SSH and Deploy to Dev EC2
         run: |
           echo "$PRIVATE_KEY" > key.pem
