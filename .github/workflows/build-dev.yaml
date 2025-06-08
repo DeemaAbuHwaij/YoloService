@@ -40,3 +40,4 @@ jobs:
       EC2_USERNAME: ${{ secrets.EC2_USERNAME }}
       AWS_REGION: ${{ secrets.AWS_REGION }}
       AWS_S3_BUCKET_DEV: ${{ secrets.AWS_S3_BUCKET_DEV }}
+
