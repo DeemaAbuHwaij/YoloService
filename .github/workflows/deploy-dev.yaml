@@ -25,7 +25,7 @@ jobs:
         env:
           PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
           EC2_HOST: ${{ secrets.DEV_EC2_HOST }}
-          EC2_USERNAME: ${{ secrets.DEV_EC2_USERNAME }}
+          EC2_USERNAME: ${{ secrets.EC2_USERNAME }}
           AWS_REGION: ${{ secrets.AWS_REGION }}
           AWS_S3_BUCKET_DEV: ${{ secrets.AWS_S3_BUCKET_DEV }}
         run: |
