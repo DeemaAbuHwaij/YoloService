@@ -30,4 +30,5 @@ jobs:
     needs: Build
     uses: ./.github/workflows/deploy-dev.yaml
     with:
-      image: ${{ jobs.Build.outputs.image }}
+      image: ${{ needs.Build.outputs.image }}
+
