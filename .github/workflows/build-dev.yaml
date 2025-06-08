@@ -1,9 +1,9 @@
-name: Polybot Build Dev
+name: Yolo Build Dev
 
 on:
   push:
     branches:
-     - dev
+      - dev
 
 jobs:
   Build:
@@ -13,21 +13,19 @@ jobs:
       image: ${{ steps.meta.outputs.image }}
 
     steps:
-     - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-     - name: Docker Login
-       run: |
-         echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+      - name: Docker Login
+        run: |
+          echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
 
-     - name: Build Docker image
-       id: meta
-       run: |
-         img_name=${{ secrets.DOCKERHUB_USERNAME }}/polybot-dev:${{ github.run_number }}
-         echo "image=$img_name" >> $GITHUB_OUTPUT
-
-         # Build and push image
-         docker build -t $img_name .
-         docker push $img_name
+      - name: Build & Push Docker Image
+        id: meta
+        run: |
+          IMAGE=${{ secrets.DOCKERHUB_USERNAME }}/yolo-dev:${{ github.run_number }}
+          echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
+          docker build -t $IMAGE .
+          docker push $IMAGE
 
   Deploy:
     needs: Build
@@ -35,4 +33,8 @@ jobs:
     with:
       image: ${{ needs.Build.outputs.image }}
     secrets:
-      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+      DEV_EC2_HOST: ${{ secrets.DEV_EC2_HOST }}
+      EC2_USERNAME: ${{ secrets.EC2_USERNAME }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      AWS_S3_BUCKET_DEV: ${{ secrets.AWS_S3_BUCKET_DEV }}
