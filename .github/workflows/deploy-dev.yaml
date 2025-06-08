@@ -54,9 +54,13 @@ jobs:
             echo "IMG_NAME=${{ inputs.image }}" > .env
             echo "AWS_REGION=${AWS_REGION}" >> .env
             echo "AWS_S3_BUCKET=${AWS_S3_BUCKET_DEV}" >> .env
+          
+            echo "✅ .env content:"
+            cat .env
 
             echo "🔁 Deploying containers"
             docker compose --env-file .env -f docker-compose.dev.yaml pull
             docker compose --env-file .env -f docker-compose.dev.yaml down
             docker compose --env-file .env -f docker-compose.dev.yaml up -d
           EOF
+
