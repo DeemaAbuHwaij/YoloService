@@ -22,7 +22,7 @@ jobs:
         id: meta
         run: |
           IMAGE=${{ secrets.DOCKERHUB_USERNAME }}/yolo-dev:${{ github.run_number }}
-          echo "image=$IMAGE" >> $GITHUB_OUTPUT
+          echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
           docker build -t $IMAGE .
           docker push $IMAGE
 
