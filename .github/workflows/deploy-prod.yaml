@@ -1,59 +1,45 @@
-name: YOLO Prod Deploy
+name: Yolo Deploy Prod
 
 on:
-  push:
-    branches:
-      - main
+  workflow_call:
+    inputs:
+      image:
+        required: true
+        type: string
+
+  workflow_dispatch:
+    inputs:
+      image:
+        required: true
+        type: string
 
 jobs:
-  deploy:
+  Deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Ensure temp directory exists
-        run: |
-          sudo mkdir -p /tmp
-          sudo chmod 1777 /tmp
-          export TMPDIR=/tmp
-          echo "TMPDIR=/tmp" >> $GITHUB_ENV
-
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up SSH and deploy to YOLO Prod
+      - name: SSH and Deploy on Prod EC2
         env:
           PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
           EC2_HOST: ${{ secrets.EC2_HOST }}
-          EC2_USER: ${{ secrets.EC2_USERNAME }}
+          EC2_USERNAME: ${{ secrets.EC2_USERNAME }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          AWS_S3_BUCKET_PROD: ${{ secrets.AWS_S3_BUCKET_PROD }}
         run: |
           echo "$PRIVATE_KEY" > key.pem
-          chmod 400 key.pem
+          chmod 600 key.pem
 
-          ssh -o StrictHostKeyChecking=no -i key.pem $EC2_USER@$EC2_HOST << 'EOF'
-            set -e  # Exit immediately if a command fails
+          scp -i key.pem -o StrictHostKeyChecking=no docker-compose.prod.yaml $EC2_USERNAME@$EC2_HOST:/home/ubuntu/
 
-            cd /home/ubuntu
+          ssh -i key.pem -o StrictHostKeyChecking=no $EC2_USERNAME@$EC2_HOST << EOF
+            echo "IMG_NAME=${{ inputs.image }}" > .env
+            echo "AWS_REGION=${AWS_REGION}" >> .env
+            echo "AWS_S3_BUCKET=${AWS_S3_BUCKET_PROD}" >> .env
 
-            # Clone the repo if it doesn't exist
-            if [ ! -d "yolo-prod" ]; then
-              git clone https://github.com/DeemaAbuHwaij/YoloService.git yolo-prod
-            fi
-
-            cd yolo-prod
-
-            # Make sure we're on the main branch and up to date
-            git fetch origin
-            git checkout main
-            git pull origin main
-
-            # Force TMPDIR inside EC2
-            export TMPDIR=/tmp
-            sudo mkdir -p "\$TMPDIR"
-            sudo chmod 1777 "\$TMPDIR"
-
-            echo "🚀 Running deploy-prod.sh ..."
-            bash ./deploy-prod.sh
+            docker compose -f docker-compose.prod.yaml pull
+            docker compose -f docker-compose.prod.yaml down
+            docker compose -f docker-compose.prod.yaml up -d
           EOF
-
-      - name: Cleanup key
-        run: rm -f key.pem

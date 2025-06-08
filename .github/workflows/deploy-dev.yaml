@@ -1,45 +1,45 @@
-name: YOLO Dev Deploy
+name: Yolo Deploy Dev
 
 on:
-  push:
-    branches:
-      - dev
+  workflow_call:
+    inputs:
+      image:
+        required: true
+        type: string
+
+  workflow_dispatch:
+    inputs:
+      image:
+        required: true
+        type: string
 
 jobs:
-  deploy:
+  Deploy:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up SSH and deploy to YOLO EC2
+      - name: SSH and Deploy to Dev EC2
         env:
           PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          EC2_HOST: ${{ secrets.DEV_YOLO_HOST }}
-          EC2_USER: ${{ secrets.EC2_USERNAME }}
+          EC2_HOST: ${{ secrets.DEV_EC2_HOST }}
+          EC2_USERNAME: ${{ secrets.DEV_EC2_USERNAME }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          AWS_S3_BUCKET_DEV: ${{ secrets.AWS_S3_BUCKET_DEV }}
         run: |
           echo "$PRIVATE_KEY" > key.pem
-          chmod 400 key.pem
+          chmod 600 key.pem
 
-          ssh -o StrictHostKeyChecking=no -i key.pem $EC2_USER@$EC2_HOST << 'EOF'
-            cd /home/ubuntu
+          scp -i key.pem -o StrictHostKeyChecking=no docker-compose.dev.yaml $EC2_USERNAME@$EC2_HOST:/home/ubuntu/
 
-            # Clone repo if not exists
-            if [ ! -d "yolo-dev" ]; then
-              git clone https://github.com/DeemaAbuHwaij/YoloService.git yolo-dev
-            fi
+          ssh -i key.pem -o StrictHostKeyChecking=no $EC2_USERNAME@$EC2_HOST << EOF
+            echo "IMG_NAME=${{ inputs.image }}" > .env
+            echo "AWS_REGION=${AWS_REGION}" >> .env
+            echo "AWS_S3_BUCKET=${AWS_S3_BUCKET_DEV}" >> .env
 
-            cd yolo-dev
-
-            # Clean up old Git issues
-            rm -f .git/index.lock
-            git gc --prune=now
-            git fsck --full || true
-
-            git checkout dev
-            git pull origin dev
-
-            # Run the deployment script
-            bash deploy-dev.sh
+            docker compose -f docker-compose.dev.yaml pull
+            docker compose -f docker-compose.dev.yaml down
+            docker compose -f docker-compose.dev.yaml up -d
           EOF
