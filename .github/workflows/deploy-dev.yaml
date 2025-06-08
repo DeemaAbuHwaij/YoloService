@@ -24,6 +24,8 @@ jobs:
       - name: Debug EC2_HOST value
         run: |
           echo "✅ EC2_HOST is: '${EC2_HOST}'"
+          echo "✅ EC2_HOST raw -> |$EC2_HOST|"
+          echo "✅ EC2_HOST length: ${#EC2_HOST}"
       
 
       - name: SSH and Deploy to Dev EC2
