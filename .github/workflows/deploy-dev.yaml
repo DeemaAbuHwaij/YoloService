@@ -44,6 +44,8 @@ jobs:
           echo "$PRIVATE_KEY" > key.pem
           chmod 600 key.pem
 
+          IMAGE="${{ inputs.image }}"
+
           echo "🔐 SSH into $EC2_USERNAME@$EC2_HOST"
           scp -i key.pem -o StrictHostKeyChecking=no docker-compose.dev.yaml $EC2_USERNAME@$EC2_HOST:/home/ubuntu/docker-compose.dev.yaml
 
@@ -51,10 +53,10 @@ jobs:
             cd /home/ubuntu
 
             echo "✅ Writing .env file"
-            echo "IMG_NAME=${{ inputs.image }}" > .env
+            echo "IMG_NAME=$IMAGE" > .env
             echo "AWS_REGION=${AWS_REGION}" >> .env
             echo "AWS_S3_BUCKET=${AWS_S3_BUCKET_DEV}" >> .env
-          
+
             echo "✅ .env content:"
             cat .env
 
@@ -63,4 +65,3 @@ jobs:
             docker compose --env-file .env -f docker-compose.dev.yaml down
             docker compose --env-file .env -f docker-compose.dev.yaml up -d
           EOF
-
