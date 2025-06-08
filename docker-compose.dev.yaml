@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  yolo:
+    image: ${IMG_NAME}
+    ports:
+      - "8080:8080"
+    environment:
+      - AWS_REGION=${AWS_REGION}
+      - AWS_S3_BUCKET=${AWS_S3_BUCKET}
+    restart: always
+
+
