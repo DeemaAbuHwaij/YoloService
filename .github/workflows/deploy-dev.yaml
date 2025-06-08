@@ -17,34 +17,28 @@ jobs:
   Deploy:
     runs-on: ubuntu-latest
 
+    env:  # ✅ Set all secrets for all steps here
+      PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+      EC2_HOST: ${{ secrets.DEV_EC2_HOST }}
+      EC2_USERNAME: ${{ secrets.EC2_USERNAME }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      AWS_S3_BUCKET_DEV: ${{ secrets.AWS_S3_BUCKET_DEV }}
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Debug EC2_HOST value
-        env:
-          PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          EC2_HOST: ${{ secrets.DEV_EC2_HOST }}
-          EC2_USERNAME: ${{ secrets.EC2_USERNAME }}
-          AWS_REGION: ${{ secrets.AWS_REGION }}
-          AWS_S3_BUCKET_DEV: ${{ secrets.AWS_S3_BUCKET_DEV }}
         run: |
           echo "✅ EC2_HOST is: '${EC2_HOST}'"
           echo "✅ EC2_HOST raw -> |$EC2_HOST|"
           echo "✅ EC2_HOST length: ${#EC2_HOST}"
-      
 
       - name: SSH and Deploy to Dev EC2
-        env:
-          PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          EC2_HOST: ${{ secrets.DEV_EC2_HOST }}
-          EC2_USERNAME: ${{ secrets.EC2_USERNAME }}
-          AWS_REGION: ${{ secrets.AWS_REGION }}
-          AWS_S3_BUCKET_DEV: ${{ secrets.AWS_S3_BUCKET_DEV }}
         run: |
           echo "$PRIVATE_KEY" > key.pem
           chmod 600 key.pem
-          
+
           echo "🔍 Connecting to: $EC2_USERNAME@$EC2_HOST"
 
           scp -i key.pem -o StrictHostKeyChecking=no docker-compose.dev.yaml $EC2_USERNAME@$EC2_HOST:/home/ubuntu/
@@ -58,4 +52,3 @@ jobs:
             docker compose -f docker-compose.dev.yaml down
             docker compose -f docker-compose.dev.yaml up -d
           EOF
-          
