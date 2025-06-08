@@ -1,0 +1,33 @@
+name: Yolo Build Dev
+
+on:
+  push:
+    branches:
+      - dev
+
+jobs:
+  Build:
+    runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.meta.outputs.image }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Docker Login
+        run: |
+          echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+
+      - name: Build & Push Docker Image
+        id: meta
+        run: |
+          IMAGE=${{ secrets.DOCKERHUB_USERNAME }}/yolo-dev:${{ github.run_number }}
+          echo "image=$IMAGE" >> $GITHUB_OUTPUT
+          docker build -t $IMAGE .
+          docker push $IMAGE
+
+  Deploy:
+    needs: Build
+    uses: ./.github/workflows/deploy-dev.yaml
+    with:
+      image: ${{ jobs.Build.outputs.image }}
