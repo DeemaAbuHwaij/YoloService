@@ -21,6 +21,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Debug EC2_HOST value
+        run: |
+          echo "✅ EC2_HOST is: '${EC2_HOST}'"
+      
+
       - name: SSH and Deploy to Dev EC2
         env:
           PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
@@ -31,6 +36,8 @@ jobs:
         run: |
           echo "$PRIVATE_KEY" > key.pem
           chmod 600 key.pem
+          
+          echo "🔍 Connecting to: $EC2_USERNAME@$EC2_HOST"
 
           scp -i key.pem -o StrictHostKeyChecking=no docker-compose.dev.yaml $EC2_USERNAME@$EC2_HOST:/home/ubuntu/
 
