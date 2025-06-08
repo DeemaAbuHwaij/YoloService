@@ -55,11 +55,14 @@ jobs:
           scp -i key.pem -o StrictHostKeyChecking=no docker-compose.dev.yaml $EC2_USERNAME@$EC2_HOST:/home/ubuntu/
 
           ssh -i key.pem -o StrictHostKeyChecking=no $EC2_USERNAME@$EC2_HOST << EOF
+            cd /home/ubuntu/
+
             echo "IMG_NAME=${{ inputs.image }}" > .env
             echo "AWS_REGION=${AWS_REGION}" >> .env
             echo "AWS_S3_BUCKET=${AWS_S3_BUCKET_DEV}" >> .env
 
-            docker compose -f docker-compose.dev.yaml pull
-            docker compose -f docker-compose.dev.yaml down
-            docker compose -f docker-compose.dev.yaml up -d
+            docker compose --env-file .env -f docker-compose.dev.yaml pull
+            docker compose --env-file .env -f docker-compose.dev.yaml down
+            docker compose --env-file .env -f docker-compose.dev.yaml up -d
           EOF
+
