@@ -8,9 +8,6 @@ on:
 jobs:
   Build:
     runs-on: ubuntu-latest
-    outputs:
-      image: ${{ steps.meta.outputs.image }}
-
     steps:
       - uses: actions/checkout@v4
 
@@ -19,15 +16,16 @@ jobs:
           echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
 
       - name: Build & Push Docker Image
-        id: meta
+        id: docker_meta
         run: |
           IMAGE=${{ secrets.DOCKERHUB_USERNAME }}/yolo-dev:${{ github.run_number }}
-          echo "✅ IMAGE=$IMAGE"
+          echo "✅ Building and pushing $IMAGE"
           echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
           docker build -t $IMAGE .
           docker push $IMAGE
-        outputs:
-          image: ${{ steps.meta.outputs.image }}  # ✅ THIS must match job.outputs
+
+    outputs:
+      image: ${{ steps.docker_meta.outputs.image }}
 
   Deploy:
     needs: Build
