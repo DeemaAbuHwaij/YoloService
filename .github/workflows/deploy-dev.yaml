@@ -48,7 +48,6 @@ jobs:
       - name: Print image value
         run: |
           echo "✅ inputs.image = '${{ inputs.image }}'"
-    
 
       - name: SSH and Deploy to Dev EC2
         run: |
@@ -75,4 +74,3 @@ jobs:
             docker compose --env-file .env -f docker-compose.dev.yaml down
             docker compose --env-file .env -f docker-compose.dev.yaml up -d
           EOF
-
