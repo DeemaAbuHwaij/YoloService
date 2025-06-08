@@ -52,15 +52,20 @@ jobs:
 
           echo "🔍 Connecting to: $EC2_USERNAME@$EC2_HOST"
 
-          scp -i key.pem -o StrictHostKeyChecking=no docker-compose.dev.yaml $EC2_USERNAME@$EC2_HOST:/home/ubuntu/
+          scp -i key.pem -o StrictHostKeyChecking=no docker-compose.dev.yaml $EC2_USERNAME@$EC2_HOST:/home/ubuntu/docker-compose.dev.yaml
 
           ssh -i key.pem -o StrictHostKeyChecking=no $EC2_USERNAME@$EC2_HOST << EOF
-            cd /home/ubuntu/
+            cd /home/ubuntu
 
+            echo "✅ Creating .env..."
             echo "IMG_NAME=${{ inputs.image }}" > .env
             echo "AWS_REGION=${AWS_REGION}" >> .env
             echo "AWS_S3_BUCKET=${AWS_S3_BUCKET_DEV}" >> .env
 
+            echo "✅ Showing .env contents:"
+            cat .env
+
+            echo "✅ Running Docker Compose..."
             docker compose --env-file .env -f docker-compose.dev.yaml pull
             docker compose --env-file .env -f docker-compose.dev.yaml down
             docker compose --env-file .env -f docker-compose.dev.yaml up -d

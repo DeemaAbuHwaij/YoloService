@@ -1,0 +1,9 @@
+services:
+  yolo:
+    image: ${IMG_NAME}
+    ports:
+      - "8080:8080"  # You can change this to "8443:8080" or another prod-specific port if needed
+    environment:
+      - AWS_REGION=${AWS_REGION}
+      - AWS_S3_BUCKET=${AWS_S3_BUCKET_PROD}
+    restart: always

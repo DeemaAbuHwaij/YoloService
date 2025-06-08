@@ -6,6 +6,17 @@ on:
       image:
         required: true
         type: string
+    secrets:
+      SSH_PRIVATE_KEY:
+        required: true
+      PROD_EC2_HOST:
+        required: true
+      EC2_USERNAME:
+        required: true
+      AWS_REGION:
+        required: true
+      AWS_S3_BUCKET_PROD:
+        required: true
 
   workflow_dispatch:
     inputs:
@@ -17,29 +28,40 @@ jobs:
   Deploy:
     runs-on: ubuntu-latest
 
+    env:
+      PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+      EC2_HOST: ${{ secrets.PROD_EC2_HOST }}
+      EC2_USERNAME: ${{ secrets.EC2_USERNAME }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      AWS_S3_BUCKET_PROD: ${{ secrets.AWS_S3_BUCKET_PROD }}
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: SSH and Deploy on Prod EC2
-        env:
-          PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          EC2_HOST: ${{ secrets.EC2_HOST }}
-          EC2_USERNAME: ${{ secrets.EC2_USERNAME }}
-          AWS_REGION: ${{ secrets.AWS_REGION }}
-          AWS_S3_BUCKET_PROD: ${{ secrets.AWS_S3_BUCKET_PROD }}
+      - name: Debug EC2_HOST value
+        run: |
+          echo "✅ EC2_HOST is: '${EC2_HOST}'"
+          echo "✅ EC2_HOST raw -> |$EC2_HOST|"
+          echo "✅ EC2_HOST length: ${#EC2_HOST}"
+
+      - name: SSH and Deploy to Prod EC2
         run: |
           echo "$PRIVATE_KEY" > key.pem
           chmod 600 key.pem
 
+          echo "🔍 Connecting to: $EC2_USERNAME@$EC2_HOST"
+
           scp -i key.pem -o StrictHostKeyChecking=no docker-compose.prod.yaml $EC2_USERNAME@$EC2_HOST:/home/ubuntu/
 
           ssh -i key.pem -o StrictHostKeyChecking=no $EC2_USERNAME@$EC2_HOST << EOF
+            cd /home/ubuntu/
+
             echo "IMG_NAME=${{ inputs.image }}" > .env
             echo "AWS_REGION=${AWS_REGION}" >> .env
             echo "AWS_S3_BUCKET=${AWS_S3_BUCKET_PROD}" >> .env
 
-            docker compose -f docker-compose.prod.yaml pull
-            docker compose -f docker-compose.prod.yaml down
-            docker compose -f docker-compose.prod.yaml up -d
+            docker compose --env-file .env -f docker-compose.prod.yaml pull
+            docker compose --env-file .env -f docker-compose.prod.yaml down
+            docker compose --env-file .env -f docker-compose.prod.yaml up -d
           EOF
