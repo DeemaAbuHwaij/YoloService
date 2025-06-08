@@ -44,7 +44,7 @@ jobs:
           echo "$PRIVATE_KEY" > key.pem
           chmod 600 key.pem
 
-          IMAGE="${{ inputs.image }}"
+          IMAGE="${{ inputs.image }}"  # ✅ store it outside the heredoc!
 
           echo "🔐 SSH into $EC2_USERNAME@$EC2_HOST"
           scp -i key.pem -o StrictHostKeyChecking=no docker-compose.dev.yaml $EC2_USERNAME@$EC2_HOST:/home/ubuntu/docker-compose.dev.yaml
