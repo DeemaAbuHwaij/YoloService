@@ -39,37 +39,23 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Debug EC2_HOST value
-        run: |
-          echo "✅ EC2_HOST is: '${EC2_HOST}'"
-          echo "✅ EC2_HOST raw -> |$EC2_HOST|"
-          echo "✅ EC2_HOST length: ${#EC2_HOST}"
-
-      - name: Print image value
-        run: |
-          echo "✅ inputs.image = '${{ inputs.image }}'"
-
       - name: SSH and Deploy to Dev EC2
         run: |
           echo "$PRIVATE_KEY" > key.pem
           chmod 600 key.pem
 
-          echo "🔍 Connecting to: $EC2_USERNAME@$EC2_HOST"
-
+          echo "🔐 SSH into $EC2_USERNAME@$EC2_HOST"
           scp -i key.pem -o StrictHostKeyChecking=no docker-compose.dev.yaml $EC2_USERNAME@$EC2_HOST:/home/ubuntu/docker-compose.dev.yaml
 
           ssh -i key.pem -o StrictHostKeyChecking=no $EC2_USERNAME@$EC2_HOST << EOF
             cd /home/ubuntu
 
-            echo "✅ Creating .env..."
+            echo "✅ Writing .env file"
             echo "IMG_NAME=${{ inputs.image }}" > .env
             echo "AWS_REGION=${AWS_REGION}" >> .env
             echo "AWS_S3_BUCKET=${AWS_S3_BUCKET_DEV}" >> .env
 
-            echo "✅ Showing .env contents:"
-            cat .env
-
-            echo "✅ Running Docker Compose..."
+            echo "🔁 Deploying containers"
             docker compose --env-file .env -f docker-compose.dev.yaml pull
             docker compose --env-file .env -f docker-compose.dev.yaml down
             docker compose --env-file .env -f docker-compose.dev.yaml up -d
