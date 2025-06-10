@@ -6,35 +6,43 @@ on:
       - dev
 
 jobs:
-  Build:
+  build:
     runs-on: ubuntu-latest
-
     outputs:
-      image: ${{ steps.meta.outputs.image }}
+      image: ${{ steps.save-image.outputs.image }}
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Docker Login
-        run: |
-          echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+      - name: Log in to DockerHub
+        run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
 
-      - name: Build & Push Docker Image
-        id: meta
+      - name: Build and push Docker image
         run: |
-          IMAGE=${{ secrets.DOCKERHUB_USERNAME }}/yolo-dev:${{ github.run_number }}
-          echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
-          docker build -t $IMAGE .
-          docker push $IMAGE
+          IMAGE_NAME=${{ secrets.DOCKERHUB_USERNAME }}/yolo-dev:${{ github.run_number }}
+          echo "🔧 Built image: $IMAGE_NAME"
+          docker build -t $IMAGE_NAME .
+          docker push $IMAGE_NAME
+          echo "$IMAGE_NAME" > image_name.txt
 
-  Deploy:
-    needs: Build
+      - name: Save image name as output
+        id: save-image
+        run: |
+          IMAGE_NAME=$(cat image_name.txt)
+          echo "image=$IMAGE_NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Upload image name artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: image-name
+          path: image_name.txt
+
+  deploy:
+    needs: build
     uses: ./.github/workflows/deploy-dev.yaml
     with:
-      image: ${{ needs.Build.outputs.image }}
+      image: ${{ needs.build.outputs.image }}
     secrets:
-      SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-      DEV_EC2_HOST: ${{ secrets.DEV_EC2_HOST }}
-      EC2_USERNAME: ${{ secrets.EC2_USERNAME }}
-      AWS_REGION: ${{ secrets.AWS_REGION }}
-      AWS_S3_BUCKET_DEV: ${{ secrets.AWS_S3_BUCKET_DEV }}
+      EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+      YOLO_EC2_IP_DEV: ${{ secrets.YOLO_EC2_IP_DEV }}
+      S3_BUCKET_NAME_DEV: ${{ secrets.S3_BUCKET_NAME_DEV }}
