@@ -22,3 +22,4 @@ services:
       - HOST_SYS=/hostfs/sys
     network_mode: host
     restart: always
+
