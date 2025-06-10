@@ -1,9 +1,24 @@
 services:
   yolo:
-    image: ${IMG_NAME}
+    image: "${IMG_NAME}"
     ports:
-      - "8080:8080"  # You can change this to "8443:8080" or another prod-specific port if needed
+      - "8080:8080"  # Or change to 8443:8080 if needed
     environment:
       - AWS_REGION=${AWS_REGION}
-      - AWS_S3_BUCKET=${AWS_S3_BUCKET_PROD}
+      - AWS_S3_BUCKET=${S3_BUCKET_NAME_PROD}
+    restart: always
+
+  otelcol:
+    image: otel/opentelemetry-collector-contrib:latest
+    container_name: otelcol
+    ports:
+      - "8889:8889"
+    volumes:
+      - ./otelcol-config.yaml:/etc/otelcol/config.yaml
+      - /proc:/hostfs/proc:ro
+      - /sys:/hostfs/sys:ro
+    environment:
+      - HOST_PROC=/hostfs/proc
+      - HOST_SYS=/hostfs/sys
+    network_mode: host
     restart: always
