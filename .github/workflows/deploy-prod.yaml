@@ -6,62 +6,78 @@ on:
       image:
         required: true
         type: string
-    secrets:
-      SSH_PRIVATE_KEY:
-        required: true
-      PROD_EC2_HOST:
-        required: true
-      EC2_USERNAME:
-        required: true
-      AWS_REGION:
-        required: true
-      AWS_S3_BUCKET_PROD:
-        required: true
 
-  workflow_dispatch:
-    inputs:
-      image:
+    secrets:
+      EC2_SSH_KEY:
         required: true
-        type: string
+      YOLO_EC2_IP_PROD:
+        required: true
+      S3_BUCKET_NAME_PROD:
+        required: true
 
 jobs:
-  Deploy:
+  deploy:
     runs-on: ubuntu-latest
 
-    env:
-      PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-      EC2_HOST: ${{ secrets.PROD_EC2_HOST }}
-      EC2_USERNAME: ${{ secrets.EC2_USERNAME }}
-      AWS_REGION: ${{ secrets.AWS_REGION }}
-      AWS_S3_BUCKET_PROD: ${{ secrets.AWS_S3_BUCKET_PROD }}
-
     steps:
-      - name: Checkout code
+      - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Debug EC2_HOST value
-        run: |
-          echo "✅ EC2_HOST is: '${EC2_HOST}'"
-          echo "✅ EC2_HOST raw -> |$EC2_HOST|"
-          echo "✅ EC2_HOST length: ${#EC2_HOST}"
+      - name: Download image name artifact (fallback)
+        uses: actions/download-artifact@v4
+        with:
+          name: image-name
+          path: ./
+        continue-on-error: true
 
-      - name: SSH and Deploy to Prod EC2
+      - name: Setup SSH key
         run: |
-          echo "$PRIVATE_KEY" > key.pem
+          echo "${{ secrets.EC2_SSH_KEY }}" > key.pem
           chmod 600 key.pem
 
-          echo "🔍 Connecting to: $EC2_USERNAME@$EC2_HOST"
+      - name: Determine image name
+        id: get-image
+        run: |
+          if [ -n "${{ inputs.image }}" ]; then
+            IMAGE_NAME="${{ inputs.image }}"
+            echo "✅ Using input image: $IMAGE_NAME"
+          elif [ -f "image_name.txt" ]; then
+            IMAGE_NAME=$(cat image_name.txt)
+            echo "✅ Using artifact image: $IMAGE_NAME"
+          else
+            echo "❌ No image name found!"
+            exit 1
+          fi
 
-          scp -i key.pem -o StrictHostKeyChecking=no docker-compose.prod.yaml $EC2_USERNAME@$EC2_HOST:/home/ubuntu/
+          echo "image=$IMAGE_NAME" >> "$GITHUB_OUTPUT"
 
-          ssh -i key.pem -o StrictHostKeyChecking=no $EC2_USERNAME@$EC2_HOST << EOF
-            cd /home/ubuntu/
+      - name: Create .env file
+        run: |
+          echo "IMG_NAME=${{ steps.get-image.outputs.image }}" > .env
+          echo "S3_BUCKET_NAME=${{ secrets.S3_BUCKET_NAME_PROD }}" >> .env
+          cat .env
 
-            echo "IMG_NAME=${{ inputs.image }}" > .env
-            echo "AWS_REGION=${AWS_REGION}" >> .env
-            echo "AWS_S3_BUCKET=${AWS_S3_BUCKET_PROD}" >> .env
+      - name: SSH and deploy to YOLO Prod
+        run: |
+          echo "📁 Ensure remote dir exists"
+          ssh -i key.pem -o StrictHostKeyChecking=no ubuntu@${{ secrets.YOLO_EC2_IP_PROD }} "mkdir -p /home/ubuntu/YoloService"
 
-            docker compose --env-file .env -f docker-compose.prod.yaml pull
-            docker compose --env-file .env -f docker-compose.prod.yaml down
-            docker compose --env-file .env -f docker-compose.prod.yaml up -d
+          echo "📤 Copying .env"
+          scp -i key.pem -o StrictHostKeyChecking=no .env ubuntu@${{ secrets.YOLO_EC2_IP_PROD }}:/home/ubuntu/YoloService/.env
+
+          echo "🚀 SSH into EC2 and deploy"
+          ssh -i key.pem -o StrictHostKeyChecking=no ubuntu@${{ secrets.YOLO_EC2_IP_PROD }} << 'EOF'
+            cd /home/ubuntu/YoloService
+
+            if [ -d ".git" ]; then
+              git checkout main
+              git pull origin main
+            else
+              git clone --branch main https://github.com/${{ github.repository }} .
+            fi
+
+            docker compose -f docker-compose.prod.yaml pull
+            docker compose -f docker-compose.prod.yaml up -d --remove-orphans
+
+            curl -s http://localhost:8080/health || echo "⚠️ Health check failed"
           EOF
