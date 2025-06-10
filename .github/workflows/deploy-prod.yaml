@@ -55,6 +55,7 @@ jobs:
         run: |
           echo "IMG_NAME=${{ steps.get-image.outputs.image }}" > .env
           echo "S3_BUCKET_NAME=${{ secrets.S3_BUCKET_NAME_PROD }}" >> .env
+          echo "AWS_REGION=${{ secrets.AWS_REGION }}" >> .env
           cat .env
 
       - name: SSH and deploy to YOLO Prod
