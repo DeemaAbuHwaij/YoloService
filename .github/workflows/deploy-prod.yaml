@@ -84,3 +84,4 @@ jobs:
           
             curl -s http://localhost:8080/health || echo "⚠️ Health check failed"
           EOF
+
