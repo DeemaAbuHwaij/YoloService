@@ -14,6 +14,8 @@ on:
         required: true
       S3_BUCKET_NAME_DEV:
         required: true
+      AWS_REGION:
+        required: true
 
 jobs:
   deploy:
@@ -48,13 +50,12 @@ jobs:
             echo "❌ No image name found!"
             exit 1
           fi
-
           echo "image=$IMAGE_NAME" >> "$GITHUB_OUTPUT"
 
       - name: Create .env file
         run: |
           echo "IMG_NAME=${{ steps.get-image.outputs.image }}" > .env
-          echo "S3_BUCKET_NAME=${{ secrets.S3_BUCKET_NAME_DEV }}" >> .env
+          echo "S3_BUCKET_NAME_DEV=${{ secrets.S3_BUCKET_NAME_DEV }}" >> .env
           echo "AWS_REGION=${{ secrets.AWS_REGION }}" >> .env
           cat .env
 
@@ -64,4 +65,35 @@ jobs:
           ssh -i key.pem -o StrictHostKeyChecking=no ubuntu@${{ secrets.YOLO_EC2_IP_DEV }} "mkdir -p /home/ubuntu/YoloService"
 
           echo "📤 Copying .env"
-          scp -i key.pem -o StrictHostKeyChecking=no .env ubuntu@${{ secrets.YOLO_EC2_IP_DEV }}:/home/ubuntu/YoloServi_
+          scp -i key.pem -o StrictHostKeyChecking=no .env ubuntu@${{ secrets.YOLO_EC2_IP_DEV }}:/home/ubuntu/YoloService/.env
+
+          echo "🚀 SSH into EC2 and deploy"
+          ssh -i key.pem -o StrictHostKeyChecking=no ubuntu@${{ secrets.YOLO_EC2_IP_DEV }} << 'EOF'
+            cd /home/ubuntu/YoloService
+
+            if [ -d ".git" ]; then
+              echo "💾 Stashing local changes"
+              git stash save "Pre-deploy stash"
+              echo "⬇️ Pulling latest code"
+              git pull origin main
+              echo "🔁 Re-applying stashed changes"
+              git stash pop || echo "⚠️ Nothing to re-apply"
+            else
+              git clone --branch main https://github.com/${{ github.repository }} .
+            fi
+
+            docker compose -f docker-compose.dev.yaml pull
+            docker compose -f docker-compose.dev.yaml down -v || true
+            docker compose -f docker-compose.dev.yaml up -d --build --remove-orphans
+
+            echo "🔍 YOLO Health check"
+            curl -s http://localhost:8080/health || echo "⚠️ YOLO health check failed"
+
+            echo "📊 OpenTelemetry Metrics check"
+            if curl -s http://localhost:8889/metrics | grep -q 'system_cpu_time'; then
+              echo "✅ OpenTelemetry metrics available"
+            else
+              echo "⚠️ No OpenTelemetry metrics"
+              docker logs \$(docker ps -qf "name=otelcol") || echo "No otelcol container"
+            fi
+          EOF

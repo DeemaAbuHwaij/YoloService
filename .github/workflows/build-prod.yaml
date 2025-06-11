@@ -46,3 +46,5 @@ jobs:
       EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
       YOLO_EC2_IP_PROD: ${{ secrets.YOLO_EC2_IP_PROD }}
       S3_BUCKET_NAME_PROD: ${{ secrets.S3_BUCKET_NAME_PROD }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+
