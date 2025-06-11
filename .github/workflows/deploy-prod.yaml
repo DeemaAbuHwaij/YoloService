@@ -25,19 +25,33 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
+      - name: Download image name artifact (fallback)
+        uses: actions/download-artifact@v4
+        with:
+          name: image-name
+          path: ./
+        continue-on-error: true
+
       - name: Setup SSH key
         run: |
           echo "${{ secrets.EC2_SSH_KEY }}" > key.pem
           chmod 600 key.pem
 
-      - name: Debug image name
-        run: |
-          echo "🚀 Image passed to deploy: ${{ inputs.image }}"
-
-      - name: Set image name output
+      - name: Determine image name
         id: get-image
         run: |
-          echo "image=${{ inputs.image }}" >> "$GITHUB_OUTPUT"
+          if [ -n "${{ inputs.image }}" ]; then
+            IMAGE_NAME="${{ inputs.image }}"
+            echo "✅ Using input image: $IMAGE_NAME"
+          elif [ -f "image_name.txt" ]; then
+            IMAGE_NAME=$(cat image_name.txt)
+            echo "✅ Using artifact image: $IMAGE_NAME"
+          else
+            echo "❌ No image name found!"
+            exit 1
+          fi
+
+          echo "image=$IMAGE_NAME" >> "$GITHUB_OUTPUT"
 
       - name: Create .env file
         run: |
@@ -70,3 +84,4 @@ jobs:
           
             curl -s http://localhost:8080/health || echo "⚠️ Health check failed"
           EOF
+

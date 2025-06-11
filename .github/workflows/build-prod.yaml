@@ -12,8 +12,7 @@ jobs:
       image: ${{ steps.save-image.outputs.image }}
 
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Log in to DockerHub
         run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
@@ -30,8 +29,13 @@ jobs:
         id: save-image
         run: |
           IMAGE_NAME=$(cat image_name.txt)
-          echo "✅ Saving image as output: $IMAGE_NAME"
           echo "image=$IMAGE_NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Upload image name artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: image-name
+          path: image_name.txt
 
   deploy:
     needs: build
@@ -43,3 +47,4 @@ jobs:
       YOLO_EC2_IP_PROD: ${{ secrets.YOLO_EC2_IP_PROD }}
       S3_BUCKET_NAME_PROD: ${{ secrets.S3_BUCKET_NAME_PROD }}
       AWS_REGION: ${{ secrets.AWS_REGION }}
+
