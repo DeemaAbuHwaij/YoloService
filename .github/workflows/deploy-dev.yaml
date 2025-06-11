@@ -68,7 +68,7 @@ jobs:
           scp -i key.pem -o StrictHostKeyChecking=no .env ubuntu@${{ secrets.YOLO_EC2_IP_DEV }}:/home/ubuntu/YoloService/.env
 
           echo "🚀 SSH into EC2 and deploy"
-          ssh -i key.pem -o StrictHostKeyChecking=no ubuntu@${{ secrets.YOLO_EC2_IP_DEV }} << 'EOF'
+          ssh -i key.pem -o StrictHostKeyChecking=no ubuntu@${{ secrets.YOLO_EC2_IP_DEV }} << EOF
             cd /home/ubuntu/YoloService
 
             if [ -d ".git" ]; then
