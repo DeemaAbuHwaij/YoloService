@@ -15,4 +15,3 @@ service:
     metrics:
       receivers: [hostmetrics]
       exporters: [prometheus]
-
