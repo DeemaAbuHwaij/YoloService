@@ -80,6 +80,8 @@ jobs:
             fi
 
             docker-compose -f docker-compose.prod.yaml pull
+            docker-compose -f docker-compose.prod.yaml down -v || true
+            docker-compose -f docker-compose.prod.yaml pull
             docker-compose -f docker-compose.prod.yaml up -d --build --remove-orphans
           
             curl -s http://localhost:8080/health || echo "⚠️ Health check failed"
