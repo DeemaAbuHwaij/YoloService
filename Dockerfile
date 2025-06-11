@@ -2,8 +2,12 @@ FROM python:3.10-slim
 
 WORKDIR /app
 
+COPY torch-requirements.txt .
+RUN pip install --no-cache-dir -r torch-requirements.txt
+
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+
 
 COPY . .
 
