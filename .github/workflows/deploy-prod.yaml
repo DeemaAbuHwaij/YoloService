@@ -80,7 +80,7 @@ jobs:
             fi
 
             docker-compose -f docker-compose.prod.yaml pull
-            docker-compose -f docker-compose.prod.yaml up -d --build --remove-orphans
+            docker-compose -f docker-compose.prod.yaml up -d --remove-orphans
           
             curl -s http://localhost:8080/health || echo "⚠️ Health check failed"
           EOF
