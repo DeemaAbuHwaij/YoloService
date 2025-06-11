@@ -87,13 +87,12 @@ jobs:
             docker compose -f docker-compose.dev.yaml up -d --build --remove-orphans
 
             echo "🔍 YOLO Health check"
-            curl -s http://localhost:8080/health || echo "⚠️ YOLO health check failed"
+            curl -s http://localhost:8080/health 
 
             echo "📊 OpenTelemetry Metrics check"
             if curl -s http://localhost:8889/metrics | grep -q 'otelcol_exporter_sent_metric_points'; then
               echo "✅ OpenTelemetry metrics available"
             else
-              echo "⚠️ No OpenTelemetry metrics"
               docker logs \$(docker ps -qf "name=otelcol") || echo "No otelcol container"
             fi
           EOF

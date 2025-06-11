@@ -2,7 +2,7 @@ services:
   yolo:
     image: "${IMG_NAME}"
     ports:
-      - "8080:8000"  # Or change to 8443:8080 if needed
+      - "8080:8000"
     environment:
       - AWS_REGION=${AWS_REGION}
       - AWS_S3_BUCKET=${S3_BUCKET_NAME_PROD}
@@ -11,8 +11,6 @@ services:
   otelcol:
     image: otel/opentelemetry-collector-contrib:latest
     container_name: otelcol-prod-yolo
-    ports:
-      - "8889:8889"
     volumes:
       - ./otelcol-config.yaml:/etc/otelcol/config.yaml
       - /proc:/hostfs/proc:ro
@@ -23,3 +21,10 @@ services:
     command: ["--config=/etc/otelcol/config.yaml"]
     network_mode: host
     restart: always
+
+  grafana:
+    image: grafana/grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
