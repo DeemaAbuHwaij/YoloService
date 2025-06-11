@@ -70,7 +70,8 @@ jobs:
 
           echo "🚀 SSH into EC2 and deploy"
           ssh -i key.pem -o StrictHostKeyChecking=no ubuntu@${{ secrets.YOLO_EC2_IP_PROD }} << 'EOF'
-            cd /home/ubuntu/PolybotServicePython
+            cd /home/ubuntu/YoloService
+
 
             echo "📁 Cloning or updating repo"
             if [ -d ".git" ]; then
