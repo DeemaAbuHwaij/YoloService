@@ -31,7 +31,8 @@ jobs:
           chmod 600 key.pem
 
       - name: Debug image name
-        run: echo "🚀 Image passed to deploy: ${{ inputs.image }}"
+        run: |
+          echo "🚀 Image passed to deploy: ${{ inputs.image }}"
 
       - name: Set image name output
         id: get-image
