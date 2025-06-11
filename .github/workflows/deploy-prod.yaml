@@ -70,14 +70,22 @@ jobs:
 
           echo "🚀 SSH into EC2 and deploy"
           ssh -i key.pem -o StrictHostKeyChecking=no ubuntu@${{ secrets.YOLO_EC2_IP_PROD }} << 'EOF'
-            cd /home/ubuntu/YoloService
+            cd /home/ubuntu/PolybotServicePython
 
+            echo "📁 Cloning or updating repo"
             if [ -d ".git" ]; then
-              git checkout main
+              echo "💾 Stashing local changes"
+              git stash save "Pre-deploy stash"
+
+              echo "⬇️ Pulling latest code"
               git pull origin main
+
+              echo "🔁 Re-applying stashed changes"
+              git stash pop || echo "⚠️ Nothing to re-apply"
             else
               git clone --branch main https://github.com/${{ github.repository }} .
             fi
+
 
             docker-compose -f docker-compose.prod.yaml pull
             docker-compose -f docker-compose.prod.yaml down -v || true
