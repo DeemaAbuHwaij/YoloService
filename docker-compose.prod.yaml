@@ -2,7 +2,7 @@ services:
   yolo:
     image: "${IMG_NAME}"
     ports:
-      - "8080:8080"  # Or change to 8443:8080 if needed
+      - "8080:8000"  # Or change to 8443:8080 if needed
     environment:
       - AWS_REGION=${AWS_REGION}
       - AWS_S3_BUCKET=${S3_BUCKET_NAME_PROD}
