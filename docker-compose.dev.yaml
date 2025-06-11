@@ -9,10 +9,17 @@ services:
     restart: always
 
   otelcol:
-    image: otel/opentelemetry-collector:latest
+    image: otel/opentelemetry-collector-contrib:latest
     container_name: otelcol-yolo-dev
     ports:
       - "8889:8889"
     volumes:
-      - ./otelcol-config.yaml:/etc/otelcol-config.yaml
-    command: ["--config=/etc/otelcol-config.yaml"]
+      - ./otelcol-config.yaml:/etc/otelcol/config.yaml
+      - /proc:/hostfs/proc:ro
+      - /sys:/hostfs/sys:ro
+    environment:
+      - HOST_PROC=/hostfs/proc
+      - HOST_SYS=/hostfs/sys
+    command: ["--config=/etc/otelcol/config.yaml"]
+    network_mode: host
+    restart: always
