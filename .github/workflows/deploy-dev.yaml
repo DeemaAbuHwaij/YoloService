@@ -82,9 +82,10 @@ jobs:
             fi
 
             echo "🐳 Docker Compose Deployment"
+            
             docker compose -f docker-compose.dev.yaml pull
-            docker compose -f docker-compose.dev.yaml down -v || true
-            docker compose -f docker-compose.dev.yaml up -d --build --remove-orphans
+            docker compose -f docker-compose.dev.yaml up -d --remove-orphans
+
 
             echo "🔍 YOLO Health check"
             curl -s http://localhost:8080/health 
