@@ -81,10 +81,9 @@ jobs:
             else
               git clone --branch main https://github.com/${{ github.repository }} .
             fi
-
+          
             docker compose -f docker-compose.prod.yaml pull
-            docker compose -f docker-compose.prod.yaml down -v || true
-            docker compose -f docker-compose.prod.yaml up -d --build --remove-orphans
+            docker compose -f docker-compose.prod.yaml up -d --remove-orphans
 
             echo "🔍 YOLO Health check"
             curl -s http://localhost:8080/health 
