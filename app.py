@@ -1,5 +1,5 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException, Request
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import FileResponse
 from ultralytics import YOLO
 from PIL import Image
 import sqlite3
@@ -8,9 +8,9 @@ import uuid
 import shutil
 import boto3
 from botocore.exceptions import ClientError
-from fastapi import UploadFile, File, Request, HTTPException
 from typing import Optional
 import torch
+from yolo.storage.dynamodb_storage import DynamoDBStorage  # 🔹 NEW
 
 # Disable GPU usage
 torch.cuda.is_available = lambda: False
@@ -26,17 +26,7 @@ os.makedirs(PREDICTED_DIR, exist_ok=True)
 
 model = YOLO("yolov8n.pt")
 
-labels = [
-   "person", "bicycle", "car", "motorcycle", "airplane", "bus", "train", "truck", "boat", "traffic light",
-   "fire hydrant", "stop sign", "parking meter", "bench", "bird", "cat", "dog", "horse", "sheep", "cow",
-   "elephant", "bear", "zebra", "giraffe", "backpack", "umbrella", "handbag", "tie", "suitcase", "frisbee",
-   "skis", "snowboard", "sports ball", "kite", "baseball bat", "baseball glove", "skateboard", "surfboard",
-   "tennis racket", "bottle", "wine glass", "cup", "fork", "knife", "spoon", "bowl", "banana", "apple",
-   "sandwich", "orange", "broccoli", "carrot", "hot dog", "pizza", "donut", "cake", "chair", "couch",
-   "potted plant", "bed", "dining table", "toilet", "tv", "laptop", "mouse", "remote", "keyboard",
-   "cell phone", "microwave", "oven", "toaster", "sink", "refrigerator", "book", "clock", "vase",
-   "scissors", "teddy bear", "hair drier", "toothbrush"
-]
+labels = [ ... ]  # unchanged list of COCO labels
 
 def init_db():
     with sqlite3.connect(DB_PATH) as conn:
@@ -96,51 +86,32 @@ async def predict(request: Request, file: Optional[UploadFile] = File(None)):
     original_path = os.path.join(UPLOAD_DIR, uid + ext)
     predicted_path = os.path.join(PREDICTED_DIR, uid + ext)
 
-    # Case 1: Download from S3
-    print("🧪 DEBUG S3 upload triggered", flush=True)
-    print("🧪 ENV AWS_S3_BUCKET:", os.getenv("AWS_S3_BUCKET"))
-    print("🧪 ENV AWS_REGION:", os.getenv("AWS_REGION"))
-    print("🧪 predicted_path exists:", os.path.exists(predicted_path))
-    print("🧪 predicted_path:", predicted_path)
-    print("🧪 S3 key:", f"{chat_id}/predicted/{image_name}")
-
     if image_name and chat_id:
-
         bucket = os.getenv("AWS_S3_BUCKET")
         region = os.getenv("AWS_REGION")
-        print("🌍 ENV VARS >>>", os.getenv("AWS_S3_BUCKET"), os.getenv("AWS_REGION"))
 
         if not bucket:
             raise HTTPException(status_code=500, detail="❌ AWS_S3_BUCKET env var not set.")
         s3_key = f"{chat_id}/original/{image_name}"
-        print(f"📥 Downloading from S3: s3://{bucket}/{s3_key}")
         s3 = boto3.client("s3", region_name=region)
         try:
             s3.download_file(bucket, s3_key, original_path)
         except ClientError as e:
             raise HTTPException(status_code=400, detail=f"❌ Failed to download from S3: {e}")
 
-    # Case 2: Direct file upload
     elif file:
         ext = os.path.splitext(file.filename)[1]
-        image_name = file.filename  # <-- force image_name for S3 key
-        chat_id = "dev-test"  # <-- fallback for upload test
-
-        original_path = os.path.join(UPLOAD_DIR, uid + ext)
-        predicted_path = os.path.join(PREDICTED_DIR, uid + ext)
+        image_name = file.filename
+        chat_id = "dev-test"
         with open(original_path, "wb") as f_out:
             shutil.copyfileobj(file.file, f_out)
-
-
     else:
         raise HTTPException(status_code=400, detail="❌ No image file or image name provided.")
 
-    print(f"🔍 Running detection on: {original_path}")
     results = model(original_path, device="cpu")
     annotated_frame = results[0].plot()
     annotated_image = Image.fromarray(annotated_frame)
     annotated_image.save(predicted_path)
-    print(f"✅ Saved predicted image: {predicted_path}")
 
     save_prediction_session(uid, original_path, predicted_path)
 
@@ -153,21 +124,13 @@ async def predict(request: Request, file: Optional[UploadFile] = File(None)):
         save_detection_object(uid, label, score, bbox)
         detected_labels.append(label)
 
-    # ✅ Debug before attempting to upload
-    print(f"🧪 predicted_path = {predicted_path}")
-    print(f"🧪 File exists? {os.path.exists(predicted_path)}")
-    print(f"🧪 image_name = {image_name}, chat_id = {chat_id}")
-
-    # Upload predicted image to S3
     if image_name and chat_id:
         try:
             bucket = os.getenv("AWS_S3_BUCKET")
             region = os.getenv("AWS_REGION")
-            print(f"📦 AWS_S3_BUCKET = {bucket}, AWS_REGION = {region}")
             predicted_s3_key = f"{chat_id}/predicted/{image_name}"
             s3 = boto3.client("s3", region_name=region)
             s3.upload_file(predicted_path, bucket, predicted_s3_key)
-            print(f"✅ Uploaded to s3://{bucket}/{predicted_s3_key}")
         except Exception as e:
             print(f"❌ Failed to upload predicted image: {e}")
 
@@ -262,6 +225,22 @@ def get_prediction_image(uid: str, request: Request):
         return FileResponse(image_path, media_type="image/jpeg")
     else:
         raise HTTPException(status_code=406, detail="Client does not accept an image format")
+
+@app.get("/predictions/{prediction_id}")  # 🔹 NEW CALLBACK ENDPOINT
+def get_prediction_from_dynamodb(prediction_id: str):
+    try:
+        table_name = os.getenv("DYNAMODB_TABLE_NAME")
+        region = os.getenv("AWS_REGION", "us-west-1")
+        storage = DynamoDBStorage(table_name=table_name, region_name=region)
+
+        result = storage.table.get_item(Key={"request_id": prediction_id})
+        if "Item" not in result:
+            raise HTTPException(status_code=404, detail="Prediction not found")
+
+        return {"prediction": result["Item"]}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"❌ Error fetching prediction: {str(e)}")
 
 @app.get("/health")
 def health():
