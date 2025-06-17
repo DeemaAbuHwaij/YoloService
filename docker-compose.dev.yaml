@@ -1,13 +1,30 @@
 version: "3.8"
+
 services:
   yolo:
     image: "${IMG_NAME}"
+    container_name: yolo-dev
     ports:
       - "8080:8000"
     environment:
       - AWS_REGION=${AWS_REGION}
       - AWS_S3_BUCKET=${S3_BUCKET_NAME_DEV}
-    restart: always
+      - SQS_QUEUE_URL=${YOLO_SQS_QUEUE_URL}
+      - POLYBOT_CALLBACK_URL=${POLYBOT_CALLBACK_URL}
+      - STORAGE_TYPE=dynamodb
+    restart: unless-stopped
+
+  async_worker:
+    image: "${IMG_NAME}"
+    container_name: yolo-worker-dev
+    command: ["python", "yolo/async_worker.py"]
+    environment:
+      - AWS_REGION=${AWS_REGION}
+      - AWS_S3_BUCKET=${S3_BUCKET_NAME_DEV}
+      - SQS_QUEUE_URL=${YOLO_SQS_QUEUE_URL}
+      - POLYBOT_CALLBACK_URL=${POLYBOT_CALLBACK_URL}
+      - STORAGE_TYPE=dynamodb
+    restart: unless-stopped
 
   otelcol:
     image: otel/opentelemetry-collector-contrib:latest
@@ -24,4 +41,3 @@ services:
     command: ["--config=/etc/otelcol/config.yaml"]
     network_mode: host
     restart: always
-
