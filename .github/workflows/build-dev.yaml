@@ -37,6 +37,8 @@ jobs:
           name: image-name
           path: image_name.txt
 
+
+
   deploy:
     needs: build
     uses: ./.github/workflows/deploy-dev.yaml
@@ -47,4 +49,6 @@ jobs:
       YOLO_EC2_IP_DEV: ${{ secrets.YOLO_EC2_IP_DEV }}
       S3_BUCKET_NAME_DEV: ${{ secrets.S3_BUCKET_NAME_DEV }}
       AWS_REGION: ${{ secrets.AWS_REGION }}
+      POLYBOT_CALLBACK_URL_DEV: ${{ secrets.POLYBOT_CALLBACK_URL_DEV }}
+      YOLO_SQS_QUEUE_URL_DEV: ${{ secrets.YOLO_SQS_QUEUE_URL_DEV }}
 

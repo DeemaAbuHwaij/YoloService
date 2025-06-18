@@ -52,12 +52,17 @@ jobs:
           fi
           echo "image=$IMAGE_NAME" >> "$GITHUB_OUTPUT"
 
+
       - name: Create .env file
         run: |
           echo "IMG_NAME=${{ steps.get-image.outputs.image }}" > .env
           echo "S3_BUCKET_NAME_DEV=${{ secrets.S3_BUCKET_NAME_DEV }}" >> .env
           echo "AWS_REGION=${{ secrets.AWS_REGION }}" >> .env
+          echo "POLYBOT_CALLBACK_URL_DEV=${{ secrets.POLYBOT_CALLBACK_URL_DEV }}" >> .env
+          echo "YOLO_SQS_QUEUE_URL_DEV=${{ secrets.YOLO_SQS_QUEUE_URL_DEV }}" >> .env
+          echo "STORAGE_TYPE=dynamodb" >> .env
           cat .env
+    
 
       - name: SSH and deploy to YOLO Dev
         run: |
