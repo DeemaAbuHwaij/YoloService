@@ -5,7 +5,7 @@ from storage.base import Storage
 import json
 from decimal import Decimal
 class DynamoDBStorage(Storage):
-    def init(self):
+    def __init__(self):
         self.table_name = os.getenv("DYNAMODB_TABLE", "Predictions")
         self.region = os.getenv("AWS_REGION", "eu-north-1")
         self.dynamodb = boto3.resource("dynamodb", region_name=self.region)
