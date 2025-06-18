@@ -13,7 +13,7 @@ while True:
         for message in messages["Messages"]:
             body = json.loads(message["Body"])
             request_id = body["request_id"]
-            image_url = body["image_s3_path"]
+            image_url = body["image_url"]
             chat_id = body["chat_id"]
 
             # Download from S3, run YOLO, save to DynamoDB
