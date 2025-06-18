@@ -1,11 +1,21 @@
+import os
 import boto3
+from .base import StorageInterface
 from decimal import Decimal, InvalidOperation
-from .base import StorageInterface  # Optional if you use a common interface
+
 
 class DynamoDBStorage(StorageInterface):
     def __init__(self, table_name=None, region_name="us-west-1"):
-        if not table_name:
-            table_name = os.getenv("DYNAMODB_TABLE_NAME")
+        # Determine environment and derive table suffix
+        env = os.getenv("ENV", "development").lower()
+        env_suffix = "prod" if env.startswith("prod") else "dev"
+
+        # Compose full table name if not provided
+        if table_name is None:
+            table_name = f"deema-PolybotPredictions-{env_suffix}"
+
+        print(f"🔧 Using DynamoDB table: {table_name} (ENV={env})")
+
         self.dynamodb = boto3.resource("dynamodb", region_name=region_name)
         self.table = self.dynamodb.Table(table_name)
 
@@ -23,22 +33,38 @@ class DynamoDBStorage(StorageInterface):
     def save_detection(self, request_id, label, confidence, bbox):
         print(f"📝 Saving detection to DynamoDB: {request_id}")
 
-        def safe_decimal(value):
-            try:
-                return Decimal(str(value))
-            except (InvalidOperation, ValueError, TypeError):
-                return Decimal(0)
-
         def safe_decimal_list(values):
-            return [safe_decimal(v) for v in values]
+            result = []
+            for v in values:
+                try:
+                    result.append(Decimal(str(v)))
+                except (InvalidOperation, ValueError, TypeError) as e:
+                    print(f"❌ Invalid bbox value: {v} — defaulting to 0. Error: {e}")
+                    result.append(Decimal("0"))
+            return result
+
+        bbox_decimal = safe_decimal_list(bbox)
 
         self.table.put_item(
             Item={
                 "request_id": f"{request_id}#{label}",
                 "type": "detection",
                 "label": label,
-                "confidence": safe_decimal(confidence),
-                "bbox": safe_decimal_list(bbox),
+                "confidence": Decimal(str(confidence)),
+                "bbox": bbox_decimal,
                 "parent_id": request_id
             }
         )
+
+    def get_prediction(self, request_id):
+        response = self.table.get_item(
+            Key={"request_id": request_id}
+        )
+        item = response.get("Item")
+        if item:
+            return {
+                "original_path": item.get("original_path"),
+                "predicted_path": item.get("predicted_path")
+            }
+        return None
+
