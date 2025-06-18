@@ -4,8 +4,7 @@ from datetime import datetime
 from storage.base import Storage
 import json
 from decimal import Decimal
-from loguru import logger  # ✅ NEW
-
+from loguru import logger
 
 
 class DynamoDBStorage(Storage):
@@ -17,22 +16,29 @@ class DynamoDBStorage(Storage):
 
     def save_prediction(self, request_id, original_path, predicted_path, chat_id=None):
         logger.info("🔥 TEST LOG - inside save_prediction()")
+
+        # Extract file names (used by Polybot to respond to user)
+        original_image = os.path.basename(original_path)
+        predicted_image = os.path.basename(predicted_path)
+
         item = {
-	        "request_id": str(request_id),
+            "request_id": str(request_id),
             "original_path": original_path,
             "predicted_path": predicted_path,
+            "original_image": original_image,      # ✅ Added
+            "predicted_image": predicted_image,    # ✅ Added
             "created_at": datetime.utcnow().isoformat(),
-            "detections": []  # initialize empty list to add detections later
+            "detections": []
         }
+
         if chat_id:
-            item["chat_id"] = str(chat_id)  # Always store as string
+            item["chat_id"] = str(chat_id)
+
         logger.debug(f"DynamoDB put_item payload:\n{json.dumps(item, indent=2)}")
         self.table.put_item(Item=item)
         logger.info(f"[DynamoDB] Saved prediction for request_id: {request_id}")
 
-
     def save_detection(self, request_id, label, score, bbox):
-        # Convert bbox list of floats to list of Decimals
         decimal_bbox = [Decimal(str(coord)) for coord in bbox]
 
         detection = {
@@ -42,7 +48,7 @@ class DynamoDBStorage(Storage):
         }
 
         self.table.update_item(
-            Key={"request_id": request_id},
+            Key={"request_id": str(request_id)},
             UpdateExpression="SET detections = list_append(if_not_exists(detections, :empty_list), :d)",
             ExpressionAttributeValues={
                 ":d": [detection],
@@ -53,15 +59,19 @@ class DynamoDBStorage(Storage):
 
     def get_prediction(self, request_id):
         try:
-            response = self.table.get_item(Key={'request_id': request_id})
+            response = self.table.get_item(Key={'request_id': str(request_id)})
             item = response.get('Item')
             if not item:
                 return None
+
+            detections = item.get("detections", [])
+            labels = [d.get("label") for d in detections if "label" in d]
+
             return {
-                "request_id": item.get("request_id"),
-                "original_path": item.get("original_path"),
-                "predicted_path": item.get("predicted_path"),
-                "detections": item.get("detections", []),
+                "prediction_uid": item.get("request_id"),
+                "original_image": item.get("original_image"),
+                "predicted_image": item.get("predicted_image"),
+                "labels": labels,
                 "timestamp": item.get("created_at"),
                 "chat_id": item.get("chat_id")
             }
@@ -92,7 +102,6 @@ class DynamoDBStorage(Storage):
         except Exception as e:
             print(f"[ERROR] get_predictions_by_score failed: {e}")
             return []
-
 
     def init(self):
         pass
