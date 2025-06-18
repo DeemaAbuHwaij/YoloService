@@ -88,5 +88,6 @@ class DynamoDBStorage(Storage):
             print(f"[ERROR] get_predictions_by_score failed: {e}")
             return []
 
+
     def init(self):
         pass
