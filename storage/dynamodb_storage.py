@@ -7,6 +7,7 @@ from decimal import Decimal
 from loguru import logger  # ✅ NEW
 
 
+
 class DynamoDBStorage(Storage):
     def __init__(self):
         self.table_name = os.getenv("DYNAMODB_TABLE", "deema-PolybotPredictions-dev")
@@ -29,11 +30,15 @@ class DynamoDBStorage(Storage):
         self.table.put_item(Item=item)
         logger.info(f"[DynamoDB] Saved prediction for request_id: {request_id}")
 
+
     def save_detection(self, request_id, label, score, bbox):
+        # Convert bbox list of floats to list of Decimals
+        decimal_bbox = [Decimal(str(coord)) for coord in bbox]
+
         detection = {
             "label": label,
             "score": Decimal(str(score)),
-            "bbox": bbox
+            "bbox": decimal_bbox
         }
 
         self.table.update_item(
