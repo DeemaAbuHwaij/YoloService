@@ -4,7 +4,7 @@ services:
   yolo:
     image: "${IMG_NAME}"
     ports:
-      - "8080:8000"
+      - "8080:8080"
     environment:
       - AWS_REGION=${AWS_REGION}
       - AWS_S3_BUCKET=${S3_BUCKET_NAME_DEV}
@@ -12,19 +12,6 @@ services:
       - POLYBOT_CALLBACK_URL=${POLYBOT_CALLBACK_URL_DEV}
       - YOLO_SQS_QUEUE_URL=${YOLO_SQS_QUEUE_URL_DEV}
     restart: always
-
-  sqs_consumer:
-    image: "${IMG_NAME}"
-    command: ["python", "sqs_consumer.py"]
-    environment:
-      - AWS_REGION=${AWS_REGION}
-      - AWS_S3_BUCKET=${S3_BUCKET_NAME_DEV}
-      - STORAGE_TYPE=dynamodb
-      - POLYBOT_CALLBACK_URL=${POLYBOT_CALLBACK_URL_DEV}
-      - YOLO_SQS_QUEUE_URL=${YOLO_SQS_QUEUE_URL_DEV}
-    restart: always
-    depends_on:
-      - yolo
 
 
   otelcol:
