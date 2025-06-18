@@ -4,60 +4,61 @@ from datetime import datetime
 from storage.base import Storage
 import json
 from decimal import Decimal
+from loguru import logger  # ✅ NEW
+
+
 class DynamoDBStorage(Storage):
     def __init__(self):
-        self.table_name = os.getenv("DYNAMODB_TABLE", "Predictions")
-        self.region = os.getenv("AWS_REGION", "eu-north-1")
+        self.table_name = os.getenv("DYNAMODB_TABLE", "deema-PolybotPredictions-dev")
+        self.region = os.getenv("AWS_REGION", "us-west-1")
         self.dynamodb = boto3.resource("dynamodb", region_name=self.region)
         self.table = self.dynamodb.Table(self.table_name)
 
-    def save_prediction(self, uid, original_path, predicted_path, chat_id=None):
+    def save_prediction(self, request_id, original_path, predicted_path, chat_id=None):
+        logger.info("🔥 TEST LOG - inside save_prediction()")
         item = {
-            "uid": uid,
+	        "request_id": str(request_id),
             "original_path": original_path,
             "predicted_path": predicted_path,
             "created_at": datetime.utcnow().isoformat(),
-            "detections": [] # initialize empty list to add detections later
+            "detections": []  # initialize empty list to add detections later
         }
         if chat_id:
             item["chat_id"] = str(chat_id)  # Always store as string
+        logger.debug(f"DynamoDB put_item payload:\n{json.dumps(item, indent=2)}")
         self.table.put_item(Item=item)
-        print(f"[DynamoDB] Saved prediction for UID: {uid}")
+        logger.info(f"[DynamoDB] Saved prediction for request_id: {request_id}")
 
-    def save_detection(self, uid, label, score, bbox):
-        # Convert bbox to string or JSON-serializable format
+    def save_detection(self, request_id, label, score, bbox):
         detection = {
             "label": label,
             "score": Decimal(str(score)),
             "bbox": bbox
         }
 
-        # Use update expression to append detection to the list
         self.table.update_item(
-            Key={"uid": uid},
+            Key={"request_id": request_id},
             UpdateExpression="SET detections = list_append(if_not_exists(detections, :empty_list), :d)",
             ExpressionAttributeValues={
                 ":d": [detection],
                 ":empty_list": []
             }
         )
-        print(f"[DynamoDB] Added detection for UID: {uid} -> {label} ({score:.2f})")
+        print(f"[DynamoDB] Added detection for request_id: {request_id} -> {label} ({score:.2f})")
 
-    def get_prediction(self, uid):
+    def get_prediction(self, request_id):
         try:
-            response = self.table.get_item(Key={'uid': uid})
+            response = self.table.get_item(Key={'request_id': request_id})
             item = response.get('Item')
             if not item:
                 return None
             return {
-                "prediction_uid": item.get("uid"),
-                "original_image": item.get("original_image"),
-                "predicted_image": item.get("predicted_image"),
-                "labels": json.loads(item.get("labels", "[]")),
-                "score": float(item.get("score", 0)),
-                "box": json.loads(item.get("box", "[]")),
-                "timestamp": item.get("timestamp"),
-                "chat_id":item.get("chat_id")
+                "request_id": item.get("request_id"),
+                "original_path": item.get("original_path"),
+                "predicted_path": item.get("predicted_path"),
+                "detections": item.get("detections", []),
+                "timestamp": item.get("created_at"),
+                "chat_id": item.get("chat_id")
             }
         except Exception as e:
             print(f"[ERROR] get_prediction failed: {e}")
@@ -66,10 +67,8 @@ class DynamoDBStorage(Storage):
     def get_predictions_by_score(self, min_score: float):
         min_score_decimal = Decimal(str(min_score))
         try:
-            # Scan all items from the table
             response = self.table.scan()
             items = response.get("Items", [])
-
             matched_predictions = []
 
             for item in items:
@@ -78,16 +77,17 @@ class DynamoDBStorage(Storage):
                     score = Decimal(str(detection.get("score", 0)))
                     if score >= min_score_decimal:
                         matched_predictions.append({
-                            "uid": item["uid"],
-                            "timestamp": item.get("created_at") or item.get("timestamp")
+                            "request_id": item["request_id"],
+                            "timestamp": item.get("created_at")
                         })
-                        break  # avoid adding same UID twice
+                        break
 
             return matched_predictions
 
         except Exception as e:
             print(f"[ERROR] get_predictions_by_score failed: {e}")
             return []
+
 
     def init(self):
         pass

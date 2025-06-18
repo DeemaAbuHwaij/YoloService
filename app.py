@@ -13,6 +13,7 @@ import threading
 import json
 import time
 import requests
+from loguru import logger  # ✅ NEW
 
 # --- Environment ---
 STORAGE_TYPE = os.getenv("STORAGE_TYPE", "sqlite").lower()
@@ -28,22 +29,21 @@ from storage.dynamodb_storage import DynamoDBStorage
 if STORAGE_TYPE == "dynamodb":
     storage = DynamoDBStorage()
     storage.init()
-    print("📦 Using DynamoDBStorage")
+    logger.info("📦 Using DynamoDBStorage")
 else:
     db_path = os.getenv("SQLITE_DB_PATH", "predictions.db")
     storage = SQLiteStorage()
     storage.init(db_path)
-    print("📦 Using SQLiteStorage")
+    logger.info("📦 Using SQLiteStorage")
 
-# --- Disable GPU ---
+logger.info(f"📂 Storage class: {storage.__class__.__name__}")
+
 torch.cuda.is_available = lambda: False
 
-# --- FastAPI App ---
 app = FastAPI()
 
 UPLOAD_DIR = "uploads/original"
 PREDICTED_DIR = "uploads/predicted"
-
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 os.makedirs(PREDICTED_DIR, exist_ok=True)
 
@@ -59,26 +59,25 @@ async def predict(request: Request, file: Optional[UploadFile] = File(None)):
     except Exception:
         body = {}
 
-    image_name = body.get("image_name")
+    logger.debug(f"📨 Incoming request body: {body}")
+
     chat_id = body.get("chat_id")
+    image_name = body.get("image_name")
+    bucket = body.get("bucket_name") or os.getenv("AWS_S3_BUCKET")
+    request_id = body.get("request_id") or str(uuid.uuid4())  # ✅ Use request_id as key
+    s3_key = f"{chat_id}/original/{image_name}" if chat_id and image_name else None
 
-    uid = str(uuid.uuid4())
     ext = ".jpg"
-    original_path = os.path.join(UPLOAD_DIR, uid + ext)
-    predicted_path = os.path.join(PREDICTED_DIR, uid + ext)
+    original_path = os.path.join(UPLOAD_DIR, request_id + ext)
+    predicted_path = os.path.join(PREDICTED_DIR, request_id + ext)
 
-    # Case 1: Download from S3
-    if image_name and chat_id:
-        bucket = os.getenv("AWS_S3_BUCKET")
-        if not bucket:
-            raise HTTPException(status_code=500, detail="❌ AWS_S3_BUCKET not set")
-        s3_key = f"{chat_id}/original/{image_name}"
+    if chat_id and image_name and bucket:
         s3 = boto3.client("s3", region_name=AWS_REGION)
         try:
             s3.download_file(bucket, s3_key, original_path)
+            logger.info(f"⬇️ Downloaded from S3: {s3_key}")
         except ClientError as e:
             raise HTTPException(status_code=400, detail=f"❌ Failed to download from S3: {e}")
-    # Case 2: Direct upload
     elif file:
         ext = os.path.splitext(file.filename)[1]
         image_name = file.filename
@@ -88,14 +87,20 @@ async def predict(request: Request, file: Optional[UploadFile] = File(None)):
     else:
         raise HTTPException(status_code=400, detail="❌ No image or file provided")
 
-    print(f"🔍 Running YOLO on: {original_path}")
+    logger.info(f"🔍 Running YOLO on: {original_path}")
     results = model(original_path, device="cpu")
     annotated = Image.fromarray(results[0].plot())
     annotated.save(predicted_path)
-    print(f"✅ Saved: {predicted_path}")
+    logger.info(f"✅ Saved: {predicted_path}")
 
-    # Save prediction + detections
-    storage.save_prediction(uid, original_path, predicted_path, chat_id)
+    logger.info(f"📌 Calling save_prediction() with request_id: {request_id}")
+    storage.save_prediction(
+        request_id=request_id,
+        original_path=original_path,
+        predicted_path=predicted_path,
+        chat_id=chat_id
+    )
+
     detected_labels = []
 
     for box in results[0].boxes:
@@ -103,32 +108,34 @@ async def predict(request: Request, file: Optional[UploadFile] = File(None)):
         label = model.names[label_idx]
         score = float(box.conf[0])
         bbox = box.xyxy[0].tolist()
-        storage.save_detection(uid, label, score, bbox)
+        storage.save_detection(
+            request_id=request_id,
+            label=label,
+            score=score,
+            bbox=bbox
+        )
         detected_labels.append(label)
 
-    # Upload prediction to S3
-    if image_name and chat_id:
+    if image_name and chat_id and bucket:
         try:
             predicted_key = f"{chat_id}/predicted/{image_name}"
-            s3 = boto3.client("s3", region_name=AWS_REGION)
-            s3.upload_file(predicted_path, os.getenv("AWS_S3_BUCKET"), predicted_key)
-            print(f"📤 Uploaded to S3: {predicted_key}")
+            s3.upload_file(predicted_path, bucket, predicted_key)
+            logger.info(f"📤 Uploaded to S3: {predicted_key}")
         except Exception as e:
-            print(f"❌ Upload failed: {e}")
+            logger.error(f"❌ Upload failed: {e}")
 
-    # Notify Polybot
     if POLYBOT_URL:
         try:
-            callback_url = f"{POLYBOT_URL}/predictions/{uid}"
-            print(f"📡 Notifying Polybot: {callback_url}")
+            callback_url = f"{POLYBOT_URL}/predictions/{request_id}"
+            logger.info(f"📡 Notifying Polybot: {callback_url}")
             r = requests.post(callback_url)
             if r.status_code != 200:
-                print(f"⚠️ Polybot error: {r.status_code}")
+                logger.warning(f"⚠️ Polybot error: {r.status_code}")
         except Exception as e:
-            print(f"❌ Failed to notify Polybot: {e}")
+            logger.error(f"❌ Failed to notify Polybot: {e}")
 
     return {
-        "prediction_uid": uid,
+        "prediction_uid": request_id,
         "detection_count": len(detected_labels),
         "labels": detected_labels
     }
@@ -176,14 +183,14 @@ def get_prediction_image(uid: str, request: Request):
 def health():
     return {"status": "ok", "version": "1.0.2"}
 
-# --- SQS Background Consumer ---
+# --- SQS Consumer ---
 def consume_messages():
     if not SQS_QUEUE_URL:
-        print("⚠️ No SQS_QUEUE_URL set — skipping consumer")
+        logger.warning("⚠️ No SQS_QUEUE_URL set — skipping consumer")
         return
 
     sqs = boto3.client("sqs", region_name=AWS_REGION)
-    print(f"🟢 Listening to SQS queue: {SQS_QUEUE_URL}")
+    logger.info(f"🟢 Listening to SQS queue: {SQS_QUEUE_URL}")
     while True:
         try:
             response = sqs.receive_message(
@@ -198,20 +205,19 @@ def consume_messages():
 
             for msg in messages:
                 body = json.loads(msg["Body"])
-                print(f"📥 Received: {body}")
+                logger.info(f"📥 Received: {body}")
                 try:
                     requests.post(YOLO_URL, json=body)
                 except Exception as e:
-                    print(f"❌ Failed to process image: {e}")
+                    logger.error(f"❌ Failed to process image: {e}")
 
                 sqs.delete_message(
                     QueueUrl=SQS_QUEUE_URL,
                     ReceiptHandle=msg["ReceiptHandle"]
                 )
-                print("🗑️ Deleted from SQS")
-
+                logger.info("🗑️ Deleted from SQS")
         except Exception as e:
-            print(f"❌ SQS error: {e}")
+            logger.error(f"❌ SQS error: {e}")
             time.sleep(5)
 
 @app.on_event("startup")
@@ -219,7 +225,6 @@ def start_consumer_thread():
     t = threading.Thread(target=consume_messages, daemon=True)
     t.start()
 
-# --- Run App ---
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8080)
