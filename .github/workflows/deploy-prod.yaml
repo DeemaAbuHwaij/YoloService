@@ -16,6 +16,11 @@ on:
         required: true
       AWS_REGION:
         required: true
+      POLYBOT_CALLBACK_URL_PROD: # ✅ Add this
+        required: true
+      SQS_QUEUE_URL: # ✅ And this
+        required: true
+
 
 jobs:
   deploy:

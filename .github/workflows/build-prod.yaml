@@ -48,3 +48,6 @@ jobs:
       S3_BUCKET_NAME_PROD: ${{ secrets.S3_BUCKET_NAME_PROD }}
       AWS_REGION: ${{ secrets.AWS_REGION }}
 
+      POLYBOT_CALLBACK_URL_PROD: ${{ secrets.POLYBOT_CALLBACK_URL_PROD }}
+      SQS_QUEUE_URL: ${{ secrets.SQS_QUEUE_URL_PROD }}
+
