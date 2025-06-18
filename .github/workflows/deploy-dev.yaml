@@ -62,7 +62,7 @@ jobs:
           echo "IMG_NAME=${{ steps.get-image.outputs.image }}" > .env
           echo "S3_BUCKET_NAME=${{ secrets.S3_BUCKET_NAME_DEV }}" >> .env
           echo "AWS_REGION=${{ secrets.AWS_REGION }}" >> .env
-          echo "POLYBOT_URL=${{ secrets.POLYBOT_CALLBACK_URL_DEV }}" >> .env
+          echo "POLYBOT_URL=http://10.0.0.229:8443" >> .env
           echo "SQS_QUEUE_URL=${{ secrets.SQS_QUEUE_URL }}" >> .env
           echo "YOLO_SQS_QUEUE_URL_DEV=${{ secrets.SQS_QUEUE_URL }}" >> .env
           echo "DYNAMODB_TABLE_NAME=deema-PolybotPredictions-dev" >> .env
