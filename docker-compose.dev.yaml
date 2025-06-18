@@ -5,8 +5,6 @@ services:
     image: "${IMG_NAME}"
     ports:
       - "8080:8080"
-    env_file:
-      - .env.dev
     environment:
       - AWS_REGION=${AWS_REGION}
       - AWS_S3_BUCKET=${S3_BUCKET_NAME}

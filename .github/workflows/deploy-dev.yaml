@@ -59,14 +59,14 @@ jobs:
 
       - name: Create .env.dev file
         run: |
-          echo "IMG_NAME=${{ steps.get-image.outputs.image }}" > .env.dev
-          echo "S3_BUCKET_NAME=${{ secrets.S3_BUCKET_NAME_DEV }}" >> .env.dev
+          echo "IMG_NAME=${{ steps.get-image.outputs.image }}" > .env.
+          echo "S3_BUCKET_NAME=${{ secrets.S3_BUCKET_NAME_DEV }}" >> .env
           echo "AWS_REGION=${{ secrets.AWS_REGION }}" >> .env.dev
-          echo "POLYBOT_URL=${{ secrets.POLYBOT_CALLBACK_URL_DEV }}" >> .env.dev
-          echo "SQS_QUEUE_URL=${{ secrets.SQS_QUEUE_URL }}" >> .env.dev
-          echo "YOLO_SQS_QUEUE_URL_DEV=${{ secrets.SQS_QUEUE_URL }}" >> .env.dev
-          echo "DYNAMODB_TABLE_NAME=deema-PolybotPredictions-dev" >> .env.dev
-          echo "STORAGE_TYPE=dynamodb" >> .env.dev
+          echo "POLYBOT_URL=${{ secrets.POLYBOT_CALLBACK_URL_DEV }}" >> .env
+          echo "SQS_QUEUE_URL=${{ secrets.SQS_QUEUE_URL }}" >> .env
+          echo "YOLO_SQS_QUEUE_URL_DEV=${{ secrets.SQS_QUEUE_URL }}" >> .env
+          echo "DYNAMODB_TABLE_NAME=deema-PolybotPredictions-dev" >> .env
+          echo "STORAGE_TYPE=dynamodb" >> .env
           cat .env.dev
 
 
