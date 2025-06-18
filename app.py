@@ -1,82 +1,54 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException, Request
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import FileResponse
 from ultralytics import YOLO
 from PIL import Image
-import sqlite3
 import os
 import uuid
 import shutil
 import boto3
 from botocore.exceptions import ClientError
-from fastapi import UploadFile, File, Request, HTTPException
 from typing import Optional
 import torch
+import threading
+import json
+import time
+import requests
+from loguru import logger  # ✅ NEW
 
-# Disable GPU usage
+# --- Environment ---
+STORAGE_TYPE = os.getenv("STORAGE_TYPE", "sqlite").lower()
+AWS_REGION = os.getenv("AWS_REGION", "us-west-1")
+SQS_QUEUE_URL = os.getenv("SQS_QUEUE_URL")
+POLYBOT_URL = os.getenv("POLYBOT_URL") or os.getenv("POLYBOT_CALLBACK_URL_DEV")
+
+YOLO_URL = os.getenv("YOLO_URL", "http://localhost:8080/predict")
+
+# --- Storage Setup ---
+from storage.sqlite_storage import SQLiteStorage
+from storage.dynamodb_storage import DynamoDBStorage
+
+if STORAGE_TYPE == "dynamodb":
+    storage = DynamoDBStorage()
+    storage.init()
+    logger.info("📦 Using DynamoDBStorage")
+else:
+    db_path = os.getenv("SQLITE_DB_PATH", "predictions.db")
+    storage = SQLiteStorage()
+    storage.init(db_path)
+    logger.info("📦 Using SQLiteStorage")
+
+logger.info(f"📂 Storage class: {storage.__class__.__name__}")
+
 torch.cuda.is_available = lambda: False
 
 app = FastAPI()
 
 UPLOAD_DIR = "uploads/original"
 PREDICTED_DIR = "uploads/predicted"
-DB_PATH = "predictions.db"
-
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 os.makedirs(PREDICTED_DIR, exist_ok=True)
 
 model = YOLO("yolov8n.pt")
-
-labels = [
-   "person", "bicycle", "car", "motorcycle", "airplane", "bus", "train", "truck", "boat", "traffic light",
-   "fire hydrant", "stop sign", "parking meter", "bench", "bird", "cat", "dog", "horse", "sheep", "cow",
-   "elephant", "bear", "zebra", "giraffe", "backpack", "umbrella", "handbag", "tie", "suitcase", "frisbee",
-   "skis", "snowboard", "sports ball", "kite", "baseball bat", "baseball glove", "skateboard", "surfboard",
-   "tennis racket", "bottle", "wine glass", "cup", "fork", "knife", "spoon", "bowl", "banana", "apple",
-   "sandwich", "orange", "broccoli", "carrot", "hot dog", "pizza", "donut", "cake", "chair", "couch",
-   "potted plant", "bed", "dining table", "toilet", "tv", "laptop", "mouse", "remote", "keyboard",
-   "cell phone", "microwave", "oven", "toaster", "sink", "refrigerator", "book", "clock", "vase",
-   "scissors", "teddy bear", "hair drier", "toothbrush"
-]
-
-def init_db():
-    with sqlite3.connect(DB_PATH) as conn:
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS prediction_sessions (
-                uid TEXT PRIMARY KEY,
-                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-                original_image TEXT,
-                predicted_image TEXT
-            )
-        """)
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS detection_objects (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                prediction_uid TEXT,
-                label TEXT,
-                score REAL,
-                box TEXT,
-                FOREIGN KEY (prediction_uid) REFERENCES prediction_sessions (uid)
-            )
-        """)
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_prediction_uid ON detection_objects (prediction_uid)")
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_label ON detection_objects (label)")
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_score ON detection_objects (score)")
-
-init_db()
-
-def save_prediction_session(uid, original_image, predicted_image):
-    with sqlite3.connect(DB_PATH) as conn:
-        conn.execute("""
-            INSERT INTO prediction_sessions (uid, original_image, predicted_image)
-            VALUES (?, ?, ?)
-        """, (uid, original_image, predicted_image))
-
-def save_detection_object(prediction_uid, label, score, box):
-    with sqlite3.connect(DB_PATH) as conn:
-        conn.execute("""
-            INSERT INTO detection_objects (prediction_uid, label, score, box)
-            VALUES (?, ?, ?, ?)
-        """, (prediction_uid, label, score, str(box)))
 
 @app.post("/predict")
 async def predict(request: Request, file: Optional[UploadFile] = File(None)):
@@ -88,152 +60,99 @@ async def predict(request: Request, file: Optional[UploadFile] = File(None)):
     except Exception:
         body = {}
 
-    image_name = body.get("image_name")
+    logger.debug(f"📨 Incoming request body: {body}")
+
     chat_id = body.get("chat_id")
+    image_name = body.get("image_name")
+    bucket = body.get("bucket_name") or os.getenv("AWS_S3_BUCKET")
+    request_id = body.get("request_id") or str(uuid.uuid4())  # ✅ Use request_id as key
+    s3_key = f"{chat_id}/original/{image_name}" if chat_id and image_name else None
 
-    uid = str(uuid.uuid4())
     ext = ".jpg"
-    original_path = os.path.join(UPLOAD_DIR, uid + ext)
-    predicted_path = os.path.join(PREDICTED_DIR, uid + ext)
+    original_path = os.path.join(UPLOAD_DIR, request_id + ext)
+    predicted_path = os.path.join(PREDICTED_DIR, request_id + ext)
 
-    # Case 1: Download from S3
-    print("🧪 DEBUG S3 upload triggered", flush=True)
-    print("🧪 ENV AWS_S3_BUCKET:", os.getenv("AWS_S3_BUCKET"))
-    print("🧪 ENV AWS_REGION:", os.getenv("AWS_REGION"))
-    print("🧪 predicted_path exists:", os.path.exists(predicted_path))
-    print("🧪 predicted_path:", predicted_path)
-    print("🧪 S3 key:", f"{chat_id}/predicted/{image_name}")
-
-    if image_name and chat_id:
-
-        bucket = os.getenv("AWS_S3_BUCKET")
-        region = os.getenv("AWS_REGION")
-        print("🌍 ENV VARS >>>", os.getenv("AWS_S3_BUCKET"), os.getenv("AWS_REGION"))
-
-        if not bucket:
-            raise HTTPException(status_code=500, detail="❌ AWS_S3_BUCKET env var not set.")
-        s3_key = f"{chat_id}/original/{image_name}"
-        print(f"📥 Downloading from S3: s3://{bucket}/{s3_key}")
-        s3 = boto3.client("s3", region_name=region)
+    if chat_id and image_name and bucket:
+        s3 = boto3.client("s3", region_name=AWS_REGION)
         try:
             s3.download_file(bucket, s3_key, original_path)
+            logger.info(f"⬇️ Downloaded from S3: {s3_key}")
         except ClientError as e:
             raise HTTPException(status_code=400, detail=f"❌ Failed to download from S3: {e}")
-
-    # Case 2: Direct file upload
     elif file:
         ext = os.path.splitext(file.filename)[1]
-        image_name = file.filename  # <-- force image_name for S3 key
-        chat_id = "dev-test"  # <-- fallback for upload test
-
-        original_path = os.path.join(UPLOAD_DIR, uid + ext)
-        predicted_path = os.path.join(PREDICTED_DIR, uid + ext)
+        image_name = file.filename
+        chat_id = "dev-test"
         with open(original_path, "wb") as f_out:
             shutil.copyfileobj(file.file, f_out)
-
-
     else:
-        raise HTTPException(status_code=400, detail="❌ No image file or image name provided.")
+        raise HTTPException(status_code=400, detail="❌ No image or file provided")
 
-    print(f"🔍 Running detection on: {original_path}")
+    logger.info(f"🔍 Running YOLO on: {original_path}")
     results = model(original_path, device="cpu")
-    annotated_frame = results[0].plot()
-    annotated_image = Image.fromarray(annotated_frame)
-    annotated_image.save(predicted_path)
-    print(f"✅ Saved predicted image: {predicted_path}")
+    annotated = Image.fromarray(results[0].plot())
+    annotated.save(predicted_path)
+    logger.info(f"✅ Saved: {predicted_path}")
 
-    save_prediction_session(uid, original_path, predicted_path)
+    logger.info(f"📌 Calling save_prediction() with request_id: {request_id}")
+    storage.save_prediction(
+        request_id=request_id,
+        original_path=original_path,
+        predicted_path=predicted_path,
+        chat_id=chat_id
+    )
 
     detected_labels = []
+
     for box in results[0].boxes:
         label_idx = int(box.cls[0].item())
         label = model.names[label_idx]
         score = float(box.conf[0])
         bbox = box.xyxy[0].tolist()
-        save_detection_object(uid, label, score, bbox)
+        storage.save_detection(
+            request_id=request_id,
+            label=label,
+            score=score,
+            bbox=bbox
+        )
         detected_labels.append(label)
 
-    # ✅ Debug before attempting to upload
-    print(f"🧪 predicted_path = {predicted_path}")
-    print(f"🧪 File exists? {os.path.exists(predicted_path)}")
-    print(f"🧪 image_name = {image_name}, chat_id = {chat_id}")
-
-    # Upload predicted image to S3
-    if image_name and chat_id:
+    if image_name and chat_id and bucket:
         try:
-            bucket = os.getenv("AWS_S3_BUCKET")
-            region = os.getenv("AWS_REGION")
-            print(f"📦 AWS_S3_BUCKET = {bucket}, AWS_REGION = {region}")
-            predicted_s3_key = f"{chat_id}/predicted/{image_name}"
-            s3 = boto3.client("s3", region_name=region)
-            s3.upload_file(predicted_path, bucket, predicted_s3_key)
-            print(f"✅ Uploaded to s3://{bucket}/{predicted_s3_key}")
+            predicted_key = f"{chat_id}/predicted/{image_name}"
+            s3.upload_file(predicted_path, bucket, predicted_key)
+            logger.info(f"📤 Uploaded to S3: {predicted_key}")
         except Exception as e:
-            print(f"❌ Failed to upload predicted image: {e}")
+            logger.error(f"❌ Upload failed: {e}")
+
+    if POLYBOT_URL:
+        try:
+            callback_url = f"{POLYBOT_URL}/predictions/{request_id}"
+            logger.info(f"📡 Notifying Polybot: {callback_url}")
+            r = requests.post(callback_url)
+            if r.status_code != 200:
+                logger.warning(f"⚠️ Polybot error: {r.status_code}")
+        except Exception as e:
+            logger.error(f"❌ Failed to notify Polybot: {e}")
 
     return {
-        "prediction_uid": uid,
-        "detection_count": len(results[0].boxes),
+        "prediction_uid": request_id,
+        "detection_count": len(detected_labels),
         "labels": detected_labels
     }
 
-@app.get("/prediction/{uid}")
-def get_prediction_by_uid(uid: str):
-    with sqlite3.connect(DB_PATH) as conn:
-        conn.row_factory = sqlite3.Row
-        session = conn.execute("SELECT * FROM prediction_sessions WHERE uid = ?", (uid,)).fetchone()
-        if not session:
-            raise HTTPException(status_code=404, detail="Prediction not found")
-        objects = conn.execute(
-            "SELECT * FROM detection_objects WHERE prediction_uid = ?",
-            (uid,)
-        ).fetchall()
-        return {
-            "uid": session["uid"],
-            "timestamp": session["timestamp"],
-            "original_image": session["original_image"],
-            "predicted_image": session["predicted_image"],
-            "detection_objects": [
-                {
-                    "id": obj["id"],
-                    "label": obj["label"],
-                    "score": obj["score"],
-                    "box": obj["box"]
-                } for obj in objects
-            ]
-        }
-
-@app.get("/predictions/label/{label}")
-def get_predictions_by_label(label: str):
-    normalized_label = label.strip().lower()
-    normalized_labels = [l.lower() for l in labels]
-    if normalized_label not in normalized_labels:
-        raise HTTPException(status_code=404, detail="Invalid label")
-
-    with sqlite3.connect(DB_PATH) as conn:
-        conn.row_factory = sqlite3.Row
-        rows = conn.execute("""
-            SELECT DISTINCT ps.uid, ps.timestamp
-            FROM prediction_sessions ps
-            JOIN detection_objects do ON ps.uid = do.prediction_uid
-            WHERE do.label = ?
-        """, (label,)).fetchall()
-        return [{"uid": row["uid"], "timestamp": row["timestamp"]} for row in rows]
+@app.get("/predictions/{uid}")
+def get_prediction(uid: str):
+    result = storage.get_prediction(uid)
+    if not result:
+        raise HTTPException(status_code=404, detail="Prediction not found")
+    return result
 
 @app.get("/predictions/score/{min_score}")
 def get_predictions_by_score(min_score: float):
     if not (0 <= min_score <= 1):
         raise HTTPException(status_code=400, detail="Score must be between 0 and 1")
-
-    with sqlite3.connect(DB_PATH) as conn:
-        conn.row_factory = sqlite3.Row
-        rows = conn.execute("""
-            SELECT DISTINCT ps.uid, ps.timestamp
-            FROM prediction_sessions ps
-            JOIN detection_objects do ON ps.uid = do.prediction_uid
-            WHERE do.score >= ?
-        """, (min_score,)).fetchall()
-        return [{"uid": row["uid"], "timestamp": row["timestamp"]} for row in rows]
+    return storage.get_predictions_by_score(min_score)
 
 @app.get("/image/{type}/{filename}")
 def get_image(type: str, filename: str):
@@ -246,26 +165,66 @@ def get_image(type: str, filename: str):
 
 @app.get("/prediction/{uid}/image")
 def get_prediction_image(uid: str, request: Request):
-    accept = request.headers.get("accept", "")
-    with sqlite3.connect(DB_PATH) as conn:
-        row = conn.execute("SELECT predicted_image FROM prediction_sessions WHERE uid = ?", (uid,)).fetchone()
-        if not row:
-            raise HTTPException(status_code=404, detail="Prediction not found")
-        image_path = row[0]
-
+    prediction = storage.get_prediction(uid)
+    if not prediction or not prediction.get("predicted_path"):
+        raise HTTPException(status_code=404, detail="Prediction or image not found")
+    image_path = prediction["predicted_path"]
     if not os.path.exists(image_path):
-        raise HTTPException(status_code=404, detail="Predicted image file not found")
+        raise HTTPException(status_code=404, detail="Predicted image not found")
 
+    accept = request.headers.get("accept", "")
     if "image/png" in accept:
         return FileResponse(image_path, media_type="image/png")
     elif "image/jpeg" in accept or "image/jpg" in accept:
         return FileResponse(image_path, media_type="image/jpeg")
     else:
-        raise HTTPException(status_code=406, detail="Client does not accept an image format")
+        raise HTTPException(status_code=406, detail="Unsupported format requested")
 
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    return {"status": "ok", "version": "1.0.2"}
+
+# --- SQS Consumer ---
+def consume_messages():
+    if not SQS_QUEUE_URL:
+        logger.warning("⚠️ No SQS_QUEUE_URL set — skipping consumer")
+        return
+
+    sqs = boto3.client("sqs", region_name=AWS_REGION)
+    logger.info(f"🟢 Listening to SQS queue: {SQS_QUEUE_URL}")
+    while True:
+        try:
+            response = sqs.receive_message(
+                QueueUrl=SQS_QUEUE_URL,
+                MaxNumberOfMessages=5,
+                WaitTimeSeconds=10
+            )
+            messages = response.get("Messages", [])
+            if not messages:
+                time.sleep(1)
+                continue
+
+            for msg in messages:
+                body = json.loads(msg["Body"])
+                logger.info(f"📥 Received: {body}")
+                try:
+                    requests.post(YOLO_URL, json=body)
+                except Exception as e:
+                    logger.error(f"❌ Failed to process image: {e}")
+
+                sqs.delete_message(
+                    QueueUrl=SQS_QUEUE_URL,
+                    ReceiptHandle=msg["ReceiptHandle"]
+                )
+                logger.info("🗑️ Deleted from SQS")
+        except Exception as e:
+            logger.error(f"❌ SQS error: {e}")
+            time.sleep(5)
+
+@app.on_event("startup")
+def start_consumer_thread():
+    t = threading.Thread(target=consume_messages, daemon=True)
+    t.start()
 
 if __name__ == "__main__":
     import uvicorn

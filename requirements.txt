@@ -11,3 +11,4 @@ python-multipart>=0.0.6
 
 httpx
 boto3
+loguru

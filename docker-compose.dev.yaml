@@ -1,12 +1,20 @@
 version: "3.8"
+
 services:
   yolo:
     image: "${IMG_NAME}"
     ports:
-      - "8080:8000"
+      - "8080:8080"
+    env_file:
+      - .env.dev
     environment:
       - AWS_REGION=${AWS_REGION}
-      - AWS_S3_BUCKET=${S3_BUCKET_NAME_DEV}
+      - AWS_S3_BUCKET=${S3_BUCKET_NAME}
+      - STORAGE_TYPE=${STORAGE_TYPE}
+      - POLYBOT_URL=${POLYBOT_URL}
+      - SQS_QUEUE_URL=${SQS_QUEUE_URL}
+      - YOLO_SQS_QUEUE_URL_DEV=${YOLO_SQS_QUEUE_URL_DEV}
+      - DYNAMODB_TABLE_NAME=${DYNAMODB_TABLE_NAME}
     restart: always
 
   otelcol:

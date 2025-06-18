@@ -16,6 +16,10 @@ on:
         required: true
       AWS_REGION:
         required: true
+      POLYBOT_CALLBACK_URL_PROD:   # ✅ Used as POLYBOT_URL
+        required: true
+      SQS_QUEUE_URL:               # ✅ Used for SQS_QUEUE_URL and YOLO_SQS_QUEUE_URL_DEV
+        required: true
 
 jobs:
   deploy:
@@ -52,20 +56,25 @@ jobs:
           fi
           echo "image=$IMAGE_NAME" >> "$GITHUB_OUTPUT"
 
-      - name: Create .env file
+      - name: Create .env.prod file
         run: |
-          echo "IMG_NAME=${{ steps.get-image.outputs.image }}" > .env
-          echo "S3_BUCKET_NAME_PROD=${{ secrets.S3_BUCKET_NAME_PROD }}" >> .env
-          echo "AWS_REGION=${{ secrets.AWS_REGION }}" >> .env
-          cat .env
+          echo "IMG_NAME=${{ steps.get-image.outputs.image }}" > .env.prod
+          echo "S3_BUCKET_NAME=${{ secrets.S3_BUCKET_NAME_PROD }}" >> .env.prod
+          echo "AWS_REGION=${{ secrets.AWS_REGION }}" >> .env.prod
+          echo "POLYBOT_URL=${{ secrets.POLYBOT_CALLBACK_URL_PROD }}" >> .env.prod
+          echo "SQS_QUEUE_URL=${{ secrets.SQS_QUEUE_URL }}" >> .env.prod
+          echo "YOLO_SQS_QUEUE_URL_DEV=${{ secrets.SQS_QUEUE_URL }}" >> .env.prod
+          echo "DYNAMODB_TABLE_NAME=deema-PolybotPredictions-prod" >> .env.prod
+          echo "STORAGE_TYPE=dynamodb" >> .env.prod
+          cat .env.prod
 
       - name: SSH and deploy to YOLO Prod
         run: |
           echo "📁 Ensure remote dir exists"
           ssh -i key.pem -o StrictHostKeyChecking=no ubuntu@${{ secrets.YOLO_EC2_IP_PROD }} "mkdir -p /home/ubuntu/YoloService"
 
-          echo "📤 Copying .env"
-          scp -i key.pem -o StrictHostKeyChecking=no .env ubuntu@${{ secrets.YOLO_EC2_IP_PROD }}:/home/ubuntu/YoloService/.env
+          echo "📤 Copying .env.prod"
+          scp -i key.pem -o StrictHostKeyChecking=no .env.prod ubuntu@${{ secrets.YOLO_EC2_IP_PROD }}:/home/ubuntu/YoloService/.env.prod
 
           echo "🚀 SSH into EC2 and deploy"
           ssh -i key.pem -o StrictHostKeyChecking=no ubuntu@${{ secrets.YOLO_EC2_IP_PROD }} << EOF
