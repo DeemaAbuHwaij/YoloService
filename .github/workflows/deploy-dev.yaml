@@ -63,7 +63,7 @@ jobs:
           echo "S3_BUCKET_NAME_DEV=${{ secrets.S3_BUCKET_NAME_DEV }}" >> .env
           echo "AWS_REGION=${{ secrets.AWS_REGION }}" >> .env
           echo "POLYBOT_CALLBACK_URL_DEV=${{ secrets.POLYBOT_CALLBACK_URL_DEV }}" >> .env
-          echo "SQS_QUEUE_URL=${{ secrets.SQS_QUEUE_URL_DEV }}" >> .env
+          echo "SQS_QUEUE_URL=${{ secrets.SQS_QUEUE_URL }}" >> .env
           echo "STORAGE_TYPE=dynamodb" >> .env
           cat .env
     
