@@ -19,7 +19,8 @@ from loguru import logger  # ✅ NEW
 STORAGE_TYPE = os.getenv("STORAGE_TYPE", "sqlite").lower()
 AWS_REGION = os.getenv("AWS_REGION", "us-west-1")
 SQS_QUEUE_URL = os.getenv("SQS_QUEUE_URL")
-POLYBOT_URL = os.getenv("POLYBOT_URL")
+POLYBOT_URL = os.getenv("POLYBOT_URL") or os.getenv("POLYBOT_CALLBACK_URL_DEV")
+
 YOLO_URL = os.getenv("YOLO_URL", "http://localhost:8080/predict")
 
 # --- Storage Setup ---
