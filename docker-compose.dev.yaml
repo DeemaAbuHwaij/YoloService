@@ -20,8 +20,8 @@ services:
       - AWS_REGION=${AWS_REGION}
       - AWS_S3_BUCKET=${S3_BUCKET_NAME_DEV}
       - STORAGE_TYPE=dynamodb
-      - POLYBOT_CALLBACK_URL=${POLYBOT_CALLBACK_URL_DEV}         # ✅ maps DEV → generic
-      - YOLO_SQS_QUEUE_URL=${YOLO_SQS_QUEUE_URL_DEV}             # ✅ maps DEV → generic
+      - POLYBOT_CALLBACK_URL=${POLYBOT_CALLBACK_URL_DEV}
+      - YOLO_SQS_QUEUE_URL=${YOLO_SQS_QUEUE_URL_DEV}
     restart: always
     depends_on:
       - yolo
