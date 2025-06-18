@@ -12,6 +12,7 @@ services:
       - POLYBOT_CALLBACK_URL=${POLYBOT_CALLBACK_URL_DEV}
       - YOLO_SQS_QUEUE_URL=${YOLO_SQS_QUEUE_URL_DEV}
       - YOLO_SQS_QUEUE_URL_DEV=${YOLO_SQS_QUEUE_URL_DEV}
+      - DYNAMODB_TABLE=deema-PolybotPredictions-dev
       - SQS_QUEUE_URL=${SQS_QUEUE_URL_DEV}
     restart: always
 
