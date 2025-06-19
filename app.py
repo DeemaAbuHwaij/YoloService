@@ -65,12 +65,12 @@ async def predict(request: Request, file: Optional[UploadFile] = File(None)):
     chat_id = body.get("chat_id")
     image_name = body.get("image_name")
     bucket = body.get("bucket_name") or os.getenv("AWS_S3_BUCKET")
-    request_id = body.get("request_id") or str(uuid.uuid4())  # ✅ Use request_id as key
+    uid = body.get("uid") or str(uuid.uuid4())  # ✅ use uid instead of request_id
     s3_key = f"{chat_id}/original/{image_name}" if chat_id and image_name else None
 
     ext = ".jpg"
-    original_path = os.path.join(UPLOAD_DIR, request_id + ext)
-    predicted_path = os.path.join(PREDICTED_DIR, request_id + ext)
+    original_path = os.path.join(UPLOAD_DIR, uid + ext)
+    predicted_path = os.path.join(PREDICTED_DIR, uid + ext)
 
     if chat_id and image_name and bucket:
         s3 = boto3.client("s3", region_name=AWS_REGION)
@@ -94,9 +94,9 @@ async def predict(request: Request, file: Optional[UploadFile] = File(None)):
     annotated.save(predicted_path)
     logger.info(f"✅ Saved: {predicted_path}")
 
-    logger.info(f"📌 Calling save_prediction() with request_id: {request_id}")
+    logger.info(f"📌 Calling save_prediction() with uid: {uid}")
     storage.save_prediction(
-        request_id=request_id,
+        uid=uid,
         original_path=original_path,
         predicted_path=predicted_path,
         chat_id=chat_id
@@ -110,7 +110,7 @@ async def predict(request: Request, file: Optional[UploadFile] = File(None)):
         score = float(box.conf[0])
         bbox = box.xyxy[0].tolist()
         storage.save_detection(
-            request_id=request_id,
+            uid=uid,
             label=label,
             score=score,
             bbox=bbox
@@ -127,7 +127,7 @@ async def predict(request: Request, file: Optional[UploadFile] = File(None)):
 
     if POLYBOT_URL:
         try:
-            callback_url = f"{POLYBOT_URL}/predictions/{request_id}"
+            callback_url = f"{POLYBOT_URL}/predictions/{uid}"
             logger.info(f"📡 Notifying Polybot: {callback_url}")
             r = requests.post(callback_url)
             if r.status_code != 200:
@@ -136,10 +136,11 @@ async def predict(request: Request, file: Optional[UploadFile] = File(None)):
             logger.error(f"❌ Failed to notify Polybot: {e}")
 
     return {
-        "prediction_uid": request_id,
+        "prediction_uid": uid,
         "detection_count": len(detected_labels),
         "labels": detected_labels
     }
+
 
 @app.get("/predictions/{uid}")
 def get_prediction(uid: str):
