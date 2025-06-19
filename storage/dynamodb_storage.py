@@ -14,18 +14,19 @@ class DynamoDBStorage(Storage):
         self.dynamodb = boto3.resource("dynamodb", region_name=self.region)
         self.table = self.dynamodb.Table(self.table_name)
 
-    def save_prediction(self, uid, original_path, predicted_path, chat_id=None):
+    def save_prediction(self, request_id, original_path, predicted_path, chat_id=None):
         logger.info("🔥 TEST LOG - inside save_prediction()")
 
+        # Extract file names (used by Polybot to respond to user)
         original_image = os.path.basename(original_path)
         predicted_image = os.path.basename(predicted_path)
 
         item = {
-            "uid": str(uid),  # 👈 changed
+            "request_id": str(request_id),
             "original_path": original_path,
             "predicted_path": predicted_path,
-            "original_image": original_image,
-            "predicted_image": predicted_image,
+            "original_image": original_image,      # ✅ Added
+            "predicted_image": predicted_image,    # ✅ Added
             "created_at": datetime.utcnow().isoformat(),
             "detections": []
         }
@@ -35,9 +36,9 @@ class DynamoDBStorage(Storage):
 
         logger.debug(f"DynamoDB put_item payload:\n{json.dumps(item, indent=2)}")
         self.table.put_item(Item=item)
-        logger.info(f"[DynamoDB] Saved prediction for uid: {uid}")
+        logger.info(f"[DynamoDB] Saved prediction for request_id: {request_id}")
 
-    def save_detection(self, uid, label, score, bbox):
+    def save_detection(self, request_id, label, score, bbox):
         decimal_bbox = [Decimal(str(coord)) for coord in bbox]
 
         detection = {
@@ -47,18 +48,18 @@ class DynamoDBStorage(Storage):
         }
 
         self.table.update_item(
-            Key={"uid": str(uid)},  # 👈 changed
+            Key={"request_id": str(request_id)},
             UpdateExpression="SET detections = list_append(if_not_exists(detections, :empty_list), :d)",
             ExpressionAttributeValues={
                 ":d": [detection],
                 ":empty_list": []
             }
         )
-        print(f"[DynamoDB] Added detection for uid: {uid} -> {label} ({score:.2f})")
+        print(f"[DynamoDB] Added detection for request_id: {request_id} -> {label} ({score:.2f})")
 
-    def get_prediction(self, uid):
+    def get_prediction(self, request_id):
         try:
-            response = self.table.get_item(Key={'uid': str(uid)})
+            response = self.table.get_item(Key={'request_id': str(request_id)})
             item = response.get('Item')
             if not item:
                 return None
@@ -67,7 +68,7 @@ class DynamoDBStorage(Storage):
             labels = [d.get("label") for d in detections if "label" in d]
 
             return {
-                "prediction_uid": item.get("uid"),  # 👈 changed
+                "prediction_uid": item.get("request_id"),
                 "original_image": item.get("original_image"),
                 "predicted_image": item.get("predicted_image"),
                 "labels": labels,
@@ -91,7 +92,7 @@ class DynamoDBStorage(Storage):
                     score = Decimal(str(detection.get("score", 0)))
                     if score >= min_score_decimal:
                         matched_predictions.append({
-                            "uid": item["uid"],  # 👈 changed
+                            "request_id": item["request_id"],
                             "timestamp": item.get("created_at")
                         })
                         break
@@ -104,4 +105,3 @@ class DynamoDBStorage(Storage):
 
     def init(self):
         pass
-
