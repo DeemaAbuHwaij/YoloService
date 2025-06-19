@@ -104,3 +104,4 @@ class DynamoDBStorage(Storage):
 
     def init(self):
         pass
+
